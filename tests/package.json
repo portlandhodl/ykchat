@@ -1,3 +1,12 @@
-{ "name": "ykchat-tests", "private": true, "type": "module",
-  "scripts": { "e2e": "node e2e.mjs" },
-  "devDependencies": { "playwright-core": "^1.50.0" } }
+{
+  "name": "ykchat-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "node e2e.mjs",
+    "cards": "node render-cards.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.50.0"
+  }
+}

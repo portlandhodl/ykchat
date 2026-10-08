@@ -145,8 +145,10 @@ async function packSignal(desc) {
 // Links carry data in the fragment (#invite=…&peer=…), which browsers never send to the web server.
 // Settings in the query (?epoch=…) are kept so both sides run with the same proof interval.
 const APP_URL = location.origin + location.pathname + location.search;
-const inviteLink = (code) => `${APP_URL}#invite=${code}&peer=${identity.fpr}`;
-const contactLink = () => `${APP_URL}#peer=${identity.fpr}`;
+// Shared links go through /join/ and /contact/, which only exist to give each its own preview card.
+const BASE_URL = new URL(".", location.href).href;
+const inviteLink = (code) => `${BASE_URL}join/${location.search}#invite=${code}&peer=${identity.fpr}`;
+const contactLink = () => `${BASE_URL}contact/${location.search}#peer=${identity.fpr}`;
 let pendingInvite = false; // opened via an invite link; show the join flow on the Connect screen
 
 async function unpackSignal(code) {
