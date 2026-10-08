@@ -233,10 +233,53 @@
   .link-group { display: inline-flex; gap: 16px; }
   .link-note { margin-top: 8px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); font-size: 12.5px; }
 
+  .known-note { margin-top: 8px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--ok-soft); color: var(--ok); font-size: 12.5px; }
+  .known-note.unverified { background: var(--surface-2); color: var(--muted); }
+
+  /* contacts */
+  .contacts { display: grid; gap: 8px; }
+  .contact { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 2px 12px; padding: 10px 12px;
+             border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer;
+             transition: border-color .15s, background-color .15s; }
+  .contact:hover { border-color: var(--accent); }
+  .contact.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .contact .initial { grid-row: span 2; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+                      background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+  .contact.selected .initial { background: var(--accent); color: var(--accent-text); }
+  .contact .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .contact .sub { grid-column: 2; color: var(--muted); font-size: 12px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .contact .pill { grid-row: span 2; }
+  .contact .remove { grid-row: span 2; width: 28px; height: 28px; padding: 0; border: none; background: none; color: var(--faint); font-size: 18px; }
+  .contact .remove:hover { color: var(--bad); background: var(--bad-soft); }
+
+  /* safety code */
+  .safety { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px 20px; padding: 14px 16px;
+            border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+  .safety-code-wrap { display: grid; gap: 2px; }
+  .safety-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .safety-code { font-family: var(--mono); font-size: 26px; font-weight: 700; letter-spacing: .08em; line-height: 1.1; }
+  .safety-help { color: var(--muted); font-size: 12.5px; }
+  .safety-actions { display: flex; gap: 8px; }
+  .safety-done { color: var(--ok); font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .safety.verified { border-color: color-mix(in srgb, var(--ok) 45%, transparent); background: var(--ok-soft); }
+  @media (max-width: 720px) { .safety { grid-template-columns: 1fr; } }
+
+  /* QR dialog */
+  .qr-dialog { width: min(400px, 92vw); padding: 24px; border: 1px solid var(--border); border-radius: var(--radius);
+               background: var(--surface); color: var(--text); box-shadow: 0 24px 64px rgb(0 0 0 / .35); text-align: center; }
+  .qr-dialog::backdrop { background: rgb(10 12 16 / .55); backdrop-filter: blur(2px); }
+  .qr-head h3 { font-size: 16px; }
+  .qr-head p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .qr-box { margin: 20px auto 0; width: 260px; padding: 0; border-radius: var(--radius-sm); overflow: hidden; background: #fff; }
+  .qr-box svg { display: block; width: 100%; height: auto; }
+  .qr-who { display: grid; gap: 4px; margin-top: 16px; }
+  .qr-fpr { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: pre-line; }
+  .qr-foot { margin-top: 20px; display: flex; justify-content: center; }
+
   /* ---------- connect: role choice */
   .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   @media (max-width: 560px) { .roles { grid-template-columns: 1fr; } }
-  .role { height: auto; display: grid; grid-template-columns: auto 1fr; justify-content: start; align-items: start; gap: 2px 14px;
+  .role { height: auto; display: grid; grid-template-columns: auto 1fr; justify-content: start; align-items: start; align-content: start; gap: 2px 14px;
           padding: 16px; text-align: left; white-space: normal; font-weight: 400; }
   .role .icon { grid-row: span 2; width: 36px; height: 36px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
   .role strong { font-size: 14px; }
@@ -414,6 +457,7 @@
           <div class="share-actions">
             <button id="btn-copy-fpr">Copy fingerprint</button>
             <button id="btn-download-key">Download public key</button>
+            <button id="btn-show-qr">Show QR code</button>
             <button id="btn-copy-contact">Copy contact link</button>
           </div>
         </div>
@@ -515,10 +559,15 @@ ssb>  cv25519 2025-03-14 [E]</div>
       <p>No server is involved: you swap two codes over any chat, email or text.</p>
     </div>
     <div class="card">
+      <div class="card-section" id="contacts-section" hidden>
+        <div class="field-label"><label>Your contacts</label><span class="hint">people you've had verified calls with</span></div>
+        <div id="contacts" class="contacts"></div>
+      </div>
       <div class="card-section">
         <div class="field">
           <div class="field-label"><label for="peer-fpr">Peer's GPG fingerprint</label><span class="hint">get this from them directly</span></div>
           <input id="peer-fpr" type="text" placeholder="40 hex characters" autocomplete="off" spellcheck="false">
+          <div id="peer-known" class="known-note" hidden></div>
           <div id="peer-fpr-note" class="link-note" hidden>Filled in from a link. Check it matches the fingerprint they gave you some other way: whoever controls the link controls this.</div>
         </div>
         <label class="switch"><input id="use-stun" type="checkbox" checked>
@@ -586,6 +635,18 @@ ssb>  cv25519 2025-03-14 [E]</div>
           <div id="touch-prompt" class="touch" hidden><svg><use href="#key"/></svg>Touch your YubiKey</div>
           <button id="btn-retry" class="primary" hidden>Prove presence</button>
         </div>
+        <div id="contact-warning" class="link-note" hidden></div>
+        <div id="safety" class="safety" hidden>
+          <div class="safety-code-wrap">
+            <span class="safety-label">Safety code</span>
+            <span id="safety-code" class="safety-code"></span>
+          </div>
+          <p id="safety-help" class="safety-help">Read it aloud. It must be the same on their screen; if it isn't, someone may be intercepting the call.</p>
+          <div id="safety-actions" class="safety-actions">
+            <button id="btn-codes-match" class="primary">Codes match</button>
+            <button id="btn-codes-mismatch">They don't match</button>
+          </div>
+        </div>
         <div id="ended" class="ended" hidden>
           <span id="ended-text">Call ended</span>
           <button id="btn-new-call" class="primary">New call</button>
@@ -619,6 +680,16 @@ ssb>  cv25519 2025-03-14 [E]</div>
     </details>
   </div>
 </main>
+
+<dialog id="qr-dialog" class="qr-dialog">
+  <div class="qr-head">
+    <h3>Scan to start a call with me</h3>
+    <p>Point a phone camera at this code. It opens ykchat with your fingerprint filled in.</p>
+  </div>
+  <div id="qr-box" class="qr-box"></div>
+  <div class="qr-who"><strong id="qr-name"></strong><span id="qr-fpr" class="qr-fpr"></span></div>
+  <form method="dialog" class="qr-foot"><button class="primary">Done</button></form>
+</dialog>
 
 <div id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="app.js"></script>

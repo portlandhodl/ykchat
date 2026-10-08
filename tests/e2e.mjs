@@ -15,7 +15,9 @@ import { chromium } from "playwright-core";
 const WEB = join(dirname(fileURLToPath(import.meta.url)), "..", "web");
 const PORT = 47123;
 const EPOCH = 3;
-const URL = `http://localhost:${PORT}/?epoch=${EPOCH}&grace=3&fps=8`;
+const QUERY = `?epoch=${EPOCH}&grace=3&fps=8`;
+const URL = `http://localhost:${PORT}/${QUERY}`;
+const PYTHON = join(dirname(fileURLToPath(import.meta.url)), "..", ".venv", "bin", "python");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const SHOTS = process.env.SHOTS; // optional directory for screenshots
 
@@ -81,6 +83,17 @@ async function enroll(p) {
   await p.page.click("#btn-save-id");
   await p.page.waitForSelector("#id-status.ok", { timeout: 5000 });
   await shot(p, `2-identity-${p.name}`);
+
+  // The QR code must decode (as a phone camera would) to the contact link.
+  await p.page.click("#btn-show-qr");
+  const png = join(root, `qr-${p.name}.png`);
+  await p.page.locator("#qr-box").screenshot({ path: png });
+  await shot(p, `2-qr-${p.name}`);
+  const decoded = execFileSync(PYTHON, ["-I", "-c",
+    "import cv2,sys; print(cv2.QRCodeDetector().detectAndDecode(cv2.imread(sys.argv[1]))[0])", png]).toString().trim();
+  const expected = `http://localhost:${PORT}/contact/${QUERY}#peer=${p.fpr}`;
+  check(decoded === expected, `${p.name}'s QR code scans to the contact link: ${decoded}`);
+  await p.page.click("#qr-dialog button");
   await p.page.click("#btn-to-connect");
 }
 
@@ -131,6 +144,10 @@ try {
   await enroll(bob);
   check(true, "both participants enrolled (GPG-signed WebAuthn binding verified)");
 
+  // Alice once saved a different key for bob@test: the call must warn that his key changed.
+  const OLD = "AAAA".repeat(10);
+  await alice.page.evaluate((old) => localStorage.setItem("ykchat.contacts", JSON.stringify({
+    [old]: { fpr: old, name: "bob <bob@test>", verified: true, firstSeen: 1, lastCall: 1 } })), OLD);
   await connect(alice, bob);
   await alice.page.waitForSelector('[data-screen="call"]:not([hidden])', { timeout: 10000 });
   await alice.page.fill("#chat-input", "Spec is here: https://example.com/spec?v=2. <img src=x onerror=alert(1)>");
@@ -146,6 +163,19 @@ try {
     check(/epoch [23] verified/.test(s.log), `${me.name} verified several epochs from ${peer.name}`);
     check(!/REJECTED|protocol error/.test(s.log), `${me.name} saw no rejections`);
   }
+
+  const codes = await Promise.all([alice, bob].map((p) => p.page.textContent("#safety-code")));
+  check(/^\d{3} \d{3}$/.test(codes[0]) && codes[0] === codes[1], `both sides show the same safety code: ${codes.join(" / ")}`);
+  await alice.page.click("#btn-codes-match");
+  const contacts = await Promise.all([alice, bob].map((p) =>
+    p.page.evaluate(() => Object.values(JSON.parse(localStorage.getItem("ykchat.contacts") || "{}")))));
+  const warning = await alice.page.evaluate(() => !document.querySelector("#contact-warning").hidden &&
+    document.querySelector("#contact-warning").textContent);
+  check(warning && warning.includes("AAAAAAAAAAAAAAAA"), `alice is warned that bob's key changed: ${String(warning).slice(0, 60)}…`);
+  const bobContact = contacts[0].find((c) => c.fpr === bob.fpr);
+  check(bobContact?.verified, "alice saved bob as a verified contact after confirming the code");
+  check(contacts[1].length === 1 && contacts[1][0].fpr === alice.fpr && !contacts[1][0].verified,
+    "bob saved alice as a contact, not yet verified");
 
   const chat = await bob.page.evaluate(() => {
     const msg = document.querySelector("#chat-list .msg.theirs");
@@ -174,6 +204,19 @@ try {
   await shot(alice, "5-tampered", "dark");
   check(!s.ok, `alice flags tampered video: ${s.text}`);
   check(s.text.includes("merkle root does not match received video/chat"), "status shows the Merkle mismatch as the cause");
+
+  // Next call: bob is one click away in alice's contacts.
+  await alice.page.click("#btn-hangup");
+  await alice.page.click("#btn-new-call");
+  await alice.page.waitForSelector("#contacts .contact");
+  await alice.page.click("#contacts .contact"); // most recent call first
+  const picked = await alice.page.evaluate(() => ({
+    fpr: document.querySelector("#peer-fpr").value, row: document.querySelector("#contacts .contact").textContent,
+    note: document.querySelector("#peer-known").textContent,
+  }));
+  check(picked.fpr === bob.fpr && /bob/.test(picked.row) && /Verified/.test(picked.row) && /compared safety codes/.test(picked.note),
+    `contacts list shows bob as verified and fills his fingerprint: ${picked.note}`);
+  await shot(alice, "6-contacts");
 } finally {
   for (const p of participants) await p.browser.close();
   server.kill();

@@ -1,9 +1,10 @@
 // ykchat browser client: serverless WebRTC (copy/paste signaling) with
 // continuous YubiKey presence proofs. See protocol.js for the crypto.
 
+import { renderSVG } from "./vendor/uqr.mjs";
 import {
   ACK_WINDOW, PROTOCOL_VERSION, PeerVerifier, b64url, bindingText, canonical, chatLeaf, concat, frameLeaf, fromUtf8, hex,
-  merkleRoot, normFpr, sessionId, sha256, signWithWebAuthn, u64, unb64url, unhex, utf8, verifyBinding,
+  merkleRoot, normFpr, safetyCode, sessionId, sha256, signWithWebAuthn, u64, unb64url, unhex, utf8, verifyBinding,
 } from "./protocol.js";
 
 const params = new URLSearchParams(location.search);
@@ -287,8 +288,8 @@ function openLink() {
   if (peer) {
     if (identity && normFpr(peer) === identity.fpr) return toast("That link is for your own key", true);
     $("peer-fpr").value = normFpr(peer);
-    $("peer-fpr").dispatchEvent(new Event("input"));
     $("peer-fpr-note").hidden = false;
+    $("peer-fpr").dispatchEvent(new Event("input"));
   }
   if (invite) {
     $("their-code").value = invite;
@@ -345,10 +346,11 @@ class CallSession {
     this.canvas.height = CONFIG.height;
   }
 
-  start() {
+  async start() {
     this.dc.onmessage = (ev) => this.onChunk(new Uint8Array(ev.data));
+    // Send only a commitment to our nonce; it is revealed once the peer has committed to theirs.
     this.sendJson({
-      t: "hello", v: PROTOCOL_VERSION, fpr: this.identity.fpr, nonce: hex(this.myNonce),
+      t: "hello", v: PROTOCOL_VERSION, fpr: this.identity.fpr, commit: hex(await sha256(this.myNonce)),
       epoch: CONFIG.epochSec, binding: this.identity.bindingAsc, gpgPublicKey: this.identity.gpgPublicKey,
     });
     this.statusTimer = setInterval(() => renderStatus(this), 250);
@@ -418,18 +420,30 @@ class CallSession {
     } else if (type === "J") {
       const m = JSON.parse(fromUtf8(msg.subarray(1)));
       if (m.t === "hello") await this.onHello(m);
+      else if (m.t === "reveal") await this.onReveal(m);
       else if (m.t === "stmt") await this.onStatement(m);
     }
   }
 
   async onHello(h) {
-    if (this.verifier) throw new Error("duplicate hello");
+    if (this.peerCommit) throw new Error("duplicate hello");
     if (h.v !== PROTOCOL_VERSION) throw new Error(`peer speaks protocol v${h.v}`);
+    if (!/^[0-9a-f]{64}$/.test(h.commit ?? "")) throw new Error("peer is running an older ykchat; both sides should reload");
     if (normFpr(h.fpr) !== this.peerFpr) throw new Error(`peer claims key ${h.fpr}, expected ${this.peerFpr}`);
-    const binding = await verifyBinding(h.binding, h.gpgPublicKey, this.peerFpr);
-    const sid = await sessionId(this.identity.fpr, this.myNonce, this.peerFpr, unhex(h.nonce));
-    this.peerNonce = unhex(h.nonce);
+    this.peerBinding = await verifyBinding(h.binding, h.gpgPublicKey, this.peerFpr);
+    this.peerCommit = h.commit;
     this.peerEpochSec = Number(h.epoch) || CONFIG.epochSec;
+    this.sendJson({ t: "reveal", nonce: hex(this.myNonce) });
+  }
+
+  async onReveal(m) {
+    if (!this.peerCommit) throw new Error("reveal before hello");
+    if (this.verifier) throw new Error("duplicate reveal");
+    const nonce = unhex(m.nonce);
+    if (hex(await sha256(nonce)) !== this.peerCommit) throw new Error("peer's nonce does not match its commitment");
+    const binding = this.peerBinding;
+    const sid = await sessionId(this.identity.fpr, this.myNonce, this.peerFpr, nonce);
+    this.peerNonce = nonce;
     this.myPrev = hex(sid);
     this.myRecent.push(hex(await sha256(this.myNonce))); // the peer's first statement acks our nonce
     this.verifier = new PeerVerifier({ binding, sessionId: sid, myRecent: this.myRecent });
@@ -438,6 +452,9 @@ class CallSession {
     this.lastError = "waiting for first statement";
     log(`peer identity: ${this.peerName} (${binding.fpr}), WebAuthn credential bound by GPG signature`, "ok");
     log(`session ${hex(sid).slice(0, 16)}`);
+    this.safetyCode = await safetyCode(sid);
+    showSafety(this);
+    checkContactConflict(binding);
     this.captureLoop();
   }
 
@@ -446,6 +463,7 @@ class CallSession {
       const stmt = await this.verifier.check(m.stmt, m.assertion);
       this.lastVerified = Date.now();
       this.lastError = "";
+      if (!this.contactSaved) { recordContact(this.verifier.binding); this.contactSaved = true; }
       for (const [seq, el] of this.theirMsgs) {
         if (seq < stmt.seq_to) { setSeal(el, "ok", "✓ verified by their key"); this.theirMsgs.delete(seq); }
       }
@@ -573,6 +591,136 @@ function renderStatus(s) {
   $("key-badge-text").textContent = ok ? `${s.peerShortName}'s YubiKey is present` : "YubiKey not verified";
 }
 
+// ------------------------------------------------------------ contacts
+// Trust on first use: peers are saved after their first verified proof, and
+// marked verified once the safety codes were compared aloud.
+
+const CONTACTS_KEY = "ykchat.contacts";
+const loadContacts = () => JSON.parse(localStorage.getItem(CONTACTS_KEY) || "{}");
+const saveContacts = (c) => localStorage.setItem(CONTACTS_KEY, JSON.stringify(c));
+const shortName = (userId) => userId?.replace(/\s*<.*>$/, "") || "";
+const emailOf = (userId) => (userId?.match(/<([^>]+)>/)?.[1] ?? userId ?? "").toLowerCase();
+
+function recordContact(binding, patch = {}) {
+  const contacts = loadContacts();
+  const prev = contacts[binding.fpr] ?? {};
+  contacts[binding.fpr] = {
+    fpr: binding.fpr, name: binding.userIds[0] ?? binding.fpr, verified: false,
+    ...prev, ...patch, firstSeen: prev.firstSeen ?? Date.now(), lastCall: Date.now(),
+  };
+  saveContacts(contacts);
+  renderContacts();
+}
+
+/** Warn if someone with this identity's email was saved under a different key. */
+function checkContactConflict(binding) {
+  const emails = new Set(binding.userIds.map(emailOf));
+  const other = Object.values(loadContacts()).find((c) => c.fpr !== binding.fpr && emails.has(emailOf(c.name)));
+  if (!other) return;
+  const msg = `${other.name} was saved with a different key (…${other.fpr.slice(-16)}). ` +
+    "They may have a new key, or someone may be impersonating them. Compare the safety code before trusting this call.";
+  $("contact-warning").textContent = msg;
+  $("contact-warning").hidden = false;
+  log(msg, "bad");
+  toast("This person's key changed since your last call", true);
+}
+
+function renderContacts() {
+  const list = $("contacts");
+  const contacts = Object.values(loadContacts()).sort((a, b) => b.lastCall - a.lastCall);
+  $("contacts-section").hidden = contacts.length === 0;
+  list.replaceChildren(...contacts.map((c) => {
+    const row = document.createElement("div");
+    row.className = "contact" + (normFpr($("peer-fpr").value) === c.fpr ? " selected" : "");
+    row.tabIndex = 0;
+    row.setAttribute("role", "button");
+    const initial = document.createElement("span");
+    initial.className = "initial";
+    initial.textContent = (shortName(c.name)[0] || "?").toUpperCase();
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = c.name;
+    const sub = document.createElement("span");
+    sub.className = "sub";
+    sub.textContent = `…${groupFpr(c.fpr).slice(-24)} · last call ${new Date(c.lastCall).toLocaleDateString()}`;
+    const pill = document.createElement("span");
+    pill.className = c.verified ? "pill ok" : "pill";
+    pill.textContent = c.verified ? "Verified" : "Not verified";
+    const remove = document.createElement("button");
+    remove.className = "remove";
+    remove.title = "Remove contact";
+    remove.setAttribute("aria-label", `Remove ${c.name}`);
+    remove.textContent = "×";
+    remove.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const all = loadContacts();
+      delete all[c.fpr];
+      saveContacts(all);
+      renderContacts();
+      updatePeerNotes();
+    });
+    const pick = () => {
+      if ($("peer-fpr").readOnly) return;
+      $("peer-fpr").value = c.fpr;
+      $("peer-fpr-note").hidden = true;
+      $("peer-fpr").dispatchEvent(new Event("input"));
+    };
+    row.addEventListener("click", pick);
+    row.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); pick(); } });
+    row.append(initial, name, pill, remove, sub);
+    return row;
+  }));
+}
+
+/** Under the peer fingerprint: say who it is if we know them. */
+function updatePeerNotes() {
+  const c = loadContacts()[normFpr($("peer-fpr").value)];
+  const note = $("peer-known");
+  note.hidden = !c;
+  if (c) {
+    note.className = c.verified ? "known-note" : "known-note unverified";
+    note.textContent = c.verified
+      ? `This is ${c.name}. You compared safety codes with them on ${new Date(c.verifiedAt ?? c.lastCall).toLocaleDateString()}.`
+      : `This is ${c.name}, a saved contact. You haven't confirmed a safety code with them yet.`;
+    // A link pointing at a key we already verified needs no extra warning.
+    if (c.verified) $("peer-fpr-note").hidden = true;
+  }
+  renderContacts(); // refresh the selected row
+}
+
+// --------------------------------------------------------- safety code
+
+function showSafety(s) {
+  $("safety").hidden = false;
+  $("safety-code").textContent = s.safetyCode;
+  if (loadContacts()[s.peerFpr]?.verified && $("contact-warning").hidden) {
+    $("safety-help").textContent = `You've verified ${s.peerShortName}'s key before. Comparing the code again is still a good habit.`;
+  }
+}
+
+function codesMatch() {
+  if (!session?.verifier) throw new Error("not connected");
+  recordContact(session.verifier.binding, { verified: true, verifiedAt: Date.now() });
+  session.contactSaved = true;
+  $("safety").classList.add("verified");
+  const done = document.createElement("span");
+  done.className = "safety-done";
+  done.textContent = `✓ Verified · ${session.peerShortName} saved to contacts`;
+  $("safety-actions").replaceChildren(done);
+  $("safety-help").textContent = "You both see the same code, so nobody is relaying this call through their own key.";
+  log(`safety code confirmed with ${session.peerName}`, "ok");
+}
+
+// ------------------------------------------------------------------ QR
+
+function showQr() {
+  $("qr-box").innerHTML = renderSVG(contactLink(), { ecc: "M", border: 4, pixelSize: 8 }); // our own SVG markup
+  $("qr-name").textContent = identity.name ?? "";
+  const g = groupFpr(identity.fpr).split("  ");
+  $("qr-fpr").textContent = g.join("\n");
+  $("qr-dialog").showModal();
+}
+
 // ---------------------------------------------------------------- chat
 
 /** Text -> DOM with http(s) links as anchors. Never parses HTML. */
@@ -698,6 +846,8 @@ for (const cmd of document.querySelectorAll(".cmd")) {
   cmd.append(btn);
 }
 
+$("peer-fpr").addEventListener("input", updatePeerNotes);
+
 // Live fingerprint validation
 for (const id of ["fpr", "peer-fpr"]) {
   $(id).addEventListener("input", () => {
@@ -748,12 +898,19 @@ window.addEventListener("beforeunload", (ev) => {
 });
 
 bind("btn-copy-fpr", () => copyText(groupFpr(identity.fpr)));
+bind("btn-show-qr", async () => showQr());
+bind("btn-codes-match", async () => codesMatch());
+bind("btn-codes-mismatch", async () => {
+  endCall("Safety codes didn't match. Someone may be intercepting this call.");
+  log("safety codes did not match; call ended", "bad");
+});
 bind("btn-copy-contact", () => copyText(contactLink()));
 bind("btn-download-key", async () => downloadPublicKey());
 bind("btn-copy-invite-link", () => copyText(inviteLink($("my-code").value)));
 window.addEventListener("hashchange", openLink);
 
 renderIdentity();
+renderContacts();
 const resume = sessionStorage.getItem(RESUME_KEY);
 sessionStorage.removeItem(RESUME_KEY);
 go(resume && identity ? resume : "welcome");

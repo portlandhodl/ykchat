@@ -107,6 +107,18 @@ export async function sessionId(fprA, nonceA, fprB, nonceB) {
   return sha256(utf8("ykchat-session"), utf8(a[0]), a[1], utf8(b[0]), b[1]);
 }
 
+/**
+ * Short code both sides display and read aloud. Each side commits to its nonce
+ * before seeing the other's, so a man in the middle can't grind nonces until the
+ * codes of its two separate sessions collide: it gets one 1-in-a-million guess.
+ */
+export async function safetyCode(sid) {
+  const h = await sha256(utf8("ykchat-safety-code"), sid);
+  const n = new DataView(h.buffer).getUint32(0) % 1_000_000;
+  const d = String(n).padStart(6, "0");
+  return `${d.slice(0, 3)} ${d.slice(3)}`;
+}
+
 // ---------------------------------------------------------- key binding
 
 export function bindingText({ fpr, rpId, credId, spki }) {

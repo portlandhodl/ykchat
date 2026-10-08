@@ -38,6 +38,15 @@ Options via URL: `?epoch=10&grace=15&fps=12`.
    The chat sidebar's messages share the video's sequence numbers, so each
    message is marked "verified" once a proof covering it checks out.
 
+Each call shows a six-digit **safety code** derived from the session. Read it
+aloud: if a fingerprint was swapped in transit (say, in a tampered link), the
+two screens show different codes. Nonces are committed before they are
+revealed, so an interceptor gets one 1-in-a-million guess. Confirming the code
+saves the peer as a verified **contact**; next time they're one click away,
+and the app warns if someone with their email shows up under a different key.
+**Show QR code** on the identity screen gives a scannable contact link for
+in-person exchange.
+
 Audio is carried by WebRTC but is not covered by the proofs.
 
 Test: `cd tests && npm install && npm run e2e` (Chrome with a virtual
