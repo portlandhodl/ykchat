@@ -201,6 +201,14 @@
   .example mark { background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 1px 3px; }
   .note { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--muted); font-size: 12.5px; }
 
+  .share { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 20px; }
+  .share-text { display: grid; gap: 2px; }
+  .share-text strong { font-size: 13px; }
+  .share-text span { color: var(--muted); font-size: 12.5px; }
+  .share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .link-group { display: inline-flex; gap: 16px; }
+  .link-note { margin-top: 8px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); font-size: 12.5px; }
+
   /* ---------- connect: role choice */
   .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   @media (max-width: 560px) { .roles { grid-template-columns: 1fr; } }
@@ -374,6 +382,17 @@
           <div id="id-fpr" class="fpr"></div>
           <button id="btn-reset-id">Use a different key</button>
         </div>
+        <div class="share">
+          <div class="share-text">
+            <strong>Share your key</strong>
+            <span>Peers need your fingerprint to verify you. Give it to them over a channel you trust, ideally in person.</span>
+          </div>
+          <div class="share-actions">
+            <button id="btn-copy-fpr">Copy fingerprint</button>
+            <button id="btn-download-key">Download public key</button>
+            <button id="btn-copy-contact">Copy contact link</button>
+          </div>
+        </div>
       </div>
 
       <div id="id-form">
@@ -476,6 +495,7 @@ ssb>  cv25519 2025-03-14 [E]</div>
         <div class="field">
           <div class="field-label"><label for="peer-fpr">Peer's GPG fingerprint</label><span class="hint">get this from them directly</span></div>
           <input id="peer-fpr" type="text" placeholder="40 hex characters" autocomplete="off" spellcheck="false">
+          <div id="peer-fpr-note" class="link-note" hidden>Filled in from a link. Check it matches the fingerprint they gave you some other way: whoever controls the link controls this.</div>
         </div>
         <label class="switch"><input id="use-stun" type="checkbox" checked>
           <span><strong>Use public STUN</strong> (stun.l.google.com) to get through home routers. Turn off for LAN-only calls.</span></label>
@@ -500,7 +520,7 @@ ssb>  cv25519 2025-03-14 [E]</div>
         <ol class="substeps" id="codes-steps">
           <li id="step-my-code">
             <div class="field">
-              <div class="field-label"><label for="my-code" id="my-code-label">Send this invite to your peer</label><button class="link" data-copy="my-code">Copy</button></div>
+              <div class="field-label"><label for="my-code" id="my-code-label">Send this invite to your peer</label><span class="link-group"><button class="link" id="btn-copy-invite-link" hidden>Copy link</button><button class="link" data-copy="my-code">Copy code</button></span></div>
               <textarea id="my-code" readonly spellcheck="false" placeholder="Generating…"></textarea>
               <div id="code-help" class="hint-below"></div>
             </div>

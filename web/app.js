@@ -48,6 +48,10 @@ let screen = "welcome";
 
 function go(name) {
   if (name === "connect" && !identity) name = "identity";
+  if (name === "connect" && pendingInvite && !pc) {
+    pendingInvite = false;
+    showCodes("guest");
+  }
   if (name === "call" && !session) name = identity ? "connect" : "identity";
   screen = name;
   for (const el of document.querySelectorAll("[data-screen]")) el.hidden = el.dataset.screen !== name;
@@ -138,8 +142,19 @@ async function packSignal(desc) {
   return "YK1." + b64url(new Uint8Array(await new Response(stream).arrayBuffer()));
 }
 
+// Links carry data in the fragment (#invite=…&peer=…), which browsers never send to the web server.
+// Settings in the query (?epoch=…) are kept so both sides run with the same proof interval.
+const APP_URL = location.origin + location.pathname + location.search;
+const inviteLink = (code) => `${APP_URL}#invite=${code}&peer=${identity.fpr}`;
+const contactLink = () => `${APP_URL}#peer=${identity.fpr}`;
+let pendingInvite = false; // opened via an invite link; show the join flow on the Connect screen
+
 async function unpackSignal(code) {
   code = code.trim();
+  if (code.includes("#")) { // a pasted link instead of a bare code
+    const frag = new URLSearchParams(code.slice(code.indexOf("#") + 1));
+    code = frag.get("invite") ?? frag.get("reply") ?? "";
+  }
   if (!code.startsWith("YK1.")) throw new Error("not a ykchat code");
   const stream = new Blob([unb64url(code.slice(4))]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
   return JSON.parse(await new Response(stream).text());
@@ -220,7 +235,8 @@ async function hostCall() {
   await pc.setLocalDescription(await pc.createOffer());
   await iceGatheringDone(pc);
   $("my-code").value = await packSignal(pc.localDescription);
-  $("code-help").textContent = "They paste it into “Join a call” and send you a reply code.";
+  $("btn-copy-invite-link").hidden = false;
+  $("code-help").textContent = "Send them the link (or the code). They open it, then send you back a reply code.";
 }
 
 async function joinCall() {
@@ -256,6 +272,36 @@ function endCall(reason) {
   $("btn-hangup").hidden = true;
   $("chat-input").disabled = true;
   $("btn-send").disabled = true;
+}
+
+/** Handle #peer=FPR and #invite=CODE links, on load or when pasted into this tab. */
+function openLink() {
+  const frag = new URLSearchParams(location.hash.slice(1));
+  const peer = frag.get("peer");
+  const invite = frag.get("invite");
+  if (!peer && !invite) return;
+  history.replaceState(null, "", APP_URL);
+  if (pc) return toast("Finish or hang up the current call before opening another link", true);
+  if (peer) {
+    if (identity && normFpr(peer) === identity.fpr) return toast("That link is for your own key", true);
+    $("peer-fpr").value = normFpr(peer);
+    $("peer-fpr").dispatchEvent(new Event("input"));
+    $("peer-fpr-note").hidden = false;
+  }
+  if (invite) {
+    $("their-code").value = invite;
+    pendingInvite = true;
+  }
+  if (!identity) toast("Set up your identity first, then you'll continue to the call");
+  go("connect");
+}
+
+function downloadPublicKey() {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([identity.gpgPublicKey + "\n"], { type: "application/pgp-keys" }));
+  a.download = `${identity.fpr.slice(-16)}.asc`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 function newCall() {
@@ -699,10 +745,17 @@ window.addEventListener("beforeunload", (ev) => {
   if (session && !session.stopped) ev.preventDefault();
 });
 
+bind("btn-copy-fpr", () => copyText(groupFpr(identity.fpr)));
+bind("btn-copy-contact", () => copyText(contactLink()));
+bind("btn-download-key", async () => downloadPublicKey());
+bind("btn-copy-invite-link", () => copyText(inviteLink($("my-code").value)));
+window.addEventListener("hashchange", openLink);
+
 renderIdentity();
 const resume = sessionStorage.getItem(RESUME_KEY);
 sessionStorage.removeItem(RESUME_KEY);
 go(resume && identity ? resume : "welcome");
+openLink();
 if (!window.isSecureContext) log("not a secure context: serve over https or http://localhost", "bad");
 log(`epoch ${CONFIG.epochSec}s, grace ${CONFIG.graceSec}s, ${CONFIG.fps} fps`);
 $("call-config").textContent = `Proof every ${CONFIG.epochSec}s · ${CONFIG.graceSec}s grace · ${CONFIG.fps} fps`;

@@ -52,7 +52,7 @@ async function openParticipant(key) {
     headless: true,
     args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
   });
-  const context = await browser.newContext({ permissions: ["camera", "microphone"] });
+  const context = await browser.newContext({ permissions: ["camera", "microphone", "clipboard-read", "clipboard-write"] });
   const page = await context.newPage();
   await page.setViewportSize({ width: 1200, height: 900 });
   page.on("pageerror", (e) => console.log(`[${key.name} pageerror] ${e.message}`));
@@ -84,16 +84,27 @@ async function enroll(p) {
   await p.page.click("#btn-to-connect");
 }
 
+// Host starts a call and copies the invite link; the guest opens that link.
 async function connect(host, guest) {
-  for (const [me, peer] of [[host, guest], [guest, host]]) {
-    await me.page.fill("#peer-fpr", peer.fpr);
-    await me.page.uncheck("#use-stun");
-  }
+  await host.page.fill("#peer-fpr", guest.fpr);
+  await host.page.uncheck("#use-stun");
   await host.page.click("#btn-host");
-  await host.page.waitForFunction(() => document.querySelector("#my-code").value.startsWith("YK1."));
+  await host.page.waitForSelector("#btn-copy-invite-link:not([hidden])");
+  await host.page.click("#btn-copy-invite-link");
+  const link = await host.page.evaluate(() => navigator.clipboard.readText());
+  check(link.includes("#invite=YK1.") && link.includes(`peer=${host.fpr}`), "invite link carries the code and host fingerprint");
   await shot(host, "3-connect-host");
-  await guest.page.click("#role-join");
-  await guest.page.fill("#their-code", await host.page.inputValue("#my-code"));
+
+  await guest.page.goto(link.replace(/^https?:\/\/[^/]+/, `http://localhost:${PORT}`));
+  await guest.page.waitForSelector("#btn-join:not([hidden])");
+  const prefilled = await guest.page.evaluate(() => ({
+    peer: document.querySelector("#peer-fpr").value, code: document.querySelector("#their-code").value,
+    note: !document.querySelector("#peer-fpr-note").hidden, hash: location.hash,
+  }));
+  check(prefilled.peer === host.fpr && prefilled.code.startsWith("YK1.") && prefilled.note && !prefilled.hash,
+    "opening the link pre-fills fingerprint and invite, warns, and clears the URL");
+  await shot(guest, "3-connect-guest");
+  await guest.page.uncheck("#use-stun");
   await guest.page.click("#btn-join");
   await guest.page.waitForFunction(() => document.querySelector("#my-code").value.startsWith("YK1."));
   await host.page.fill("#their-code", await guest.page.inputValue("#my-code"));
