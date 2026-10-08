@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ykchat</title>
+<script>
+  // Apply the saved theme before first paint to avoid a flash.
+  document.documentElement.dataset.theme = localStorage.getItem("ykchat.theme") || "auto";
+</script>
+<style>
+  :root {
+    --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --border: #dfe3e8;
+    --text: #1b1f24; --muted: #5d6673; --accent: #3b5bdb; --accent-text: #ffffff; --accent-soft: #e7ecfd;
+    --ok: #1f8a4c; --ok-soft: #e3f4ea; --bad: #c9302c; --bad-soft: #fbe7e6; --warn: #9a6700; --warn-soft: #fff4d6;
+    --shadow: 0 1px 2px rgb(16 24 40 / .06), 0 4px 16px rgb(16 24 40 / .06);
+    --radius: 14px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1116; --surface: #161b22; --surface-2: #1d232c; --border: #2b333e;
+    --text: #e6eaf0; --muted: #9aa5b4; --accent: #7c95ff; --accent-text: #0e1116; --accent-soft: #1f2a4d;
+    --ok: #3fb96d; --ok-soft: #12291c; --bad: #f2615c; --bad-soft: #351716; --warn: #e3b341; --warn-soft: #2e2510;
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 4px 16px rgb(0 0 0 / .3);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root[data-theme="auto"] {
+      --bg: #0e1116; --surface: #161b22; --surface-2: #1d232c; --border: #2b333e;
+      --text: #e6eaf0; --muted: #9aa5b4; --accent: #7c95ff; --accent-text: #0e1116; --accent-soft: #1f2a4d;
+      --ok: #3fb96d; --ok-soft: #12291c; --bad: #f2615c; --bad-soft: #351716; --warn: #e3b341; --warn-soft: #2e2510;
+      --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 4px 16px rgb(0 0 0 / .3);
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    transition: background-color .2s, color .2s;
+  }
+  [hidden] { display: none !important; }
+  code, .mono { font-family: var(--mono); font-size: .88em; }
+  code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: .05em .35em; }
+  a { color: var(--accent); }
+
+  /* header */
+  header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 85%, transparent);
+           backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+  .bar { max-width: 1080px; margin: 0 auto; padding: .7rem 1.25rem; display: flex; align-items: center; gap: .75rem; }
+  .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--accent-text);
+          display: grid; place-items: center; }
+  .brand { font-weight: 700; font-size: 1.1rem; letter-spacing: -.01em; }
+  .tagline { color: var(--muted); font-size: .88rem; }
+  .spacer { flex: 1; }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 1.25rem; display: grid; gap: 1.25rem; }
+
+  /* cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+          box-shadow: var(--shadow); padding: 1.25rem 1.4rem; }
+  .card-head { display: flex; align-items: center; gap: .8rem; margin-bottom: .9rem; }
+  .step { width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center;
+          font-weight: 700; font-size: .85rem; background: var(--accent-soft); color: var(--accent); }
+  .card.done .step { background: var(--ok); color: #fff; }
+  .card.done .step::before { content: "✓"; }
+  .card.done .step span { display: none; }
+  h2 { margin: 0; font-size: 1.05rem; }
+  .card-head p { margin: 0; color: var(--muted); font-size: .88rem; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start; }
+  @media (max-width: 860px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* form controls */
+  label.field { display: block; font-weight: 600; font-size: .85rem; margin: .9rem 0 .35rem; }
+  label.field .hint { font-weight: 400; color: var(--muted); }
+  input[type=text], textarea {
+    width: 100%; font-family: var(--mono); font-size: .82rem; color: var(--text);
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: .6rem .7rem;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input[type=text] { font-size: .95rem; letter-spacing: .02em; }
+  textarea { height: 6.5rem; resize: vertical; }
+  input[type=text]:focus, textarea:focus { outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+  input.valid { border-color: var(--ok); }
+  input.invalid { border-color: var(--bad); }
+  .check { display: flex; align-items: center; gap: .5rem; margin-top: .8rem; font-size: .88rem; color: var(--muted); }
+  .check input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+  button {
+    font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer; border-radius: 9px;
+    padding: .55rem 1rem; border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+    transition: filter .15s, transform .05s, background-color .15s;
+  }
+  button:hover { filter: brightness(1.06); }
+  button:active { transform: translateY(1px); }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+  button.ghost { background: transparent; }
+  button.small { padding: .3rem .6rem; font-size: .78rem; }
+  button.icon { padding: .4rem .6rem; }
+
+  .copy-wrap { position: relative; }
+  .copy-wrap button { position: absolute; top: .45rem; right: .45rem; }
+  .copy-wrap textarea { padding-right: 4.5rem; }
+
+  /* pills, notes */
+  .pill { display: inline-flex; align-items: center; gap: .45rem; font-size: .82rem; font-weight: 600;
+          padding: .3rem .7rem; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+  .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .note { border-radius: 10px; padding: .7rem .9rem; font-size: .87rem; margin-top: .9rem;
+          background: var(--surface-2); color: var(--muted); }
+  .note.warn { background: var(--warn-soft); color: var(--warn); }
+
+  .identity-summary { display: grid; gap: .6rem; justify-items: start; }
+  .identity-summary .who { font-weight: 600; }
+  .fpr { font-family: var(--mono); font-size: .9rem; letter-spacing: .03em; word-spacing: .2em;
+         background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: .55rem .75rem; }
+
+  .substeps { counter-reset: s; list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: .25rem; }
+  .substeps > li { counter-increment: s; position: relative; padding-left: 2rem; }
+  .substeps > li::before { content: counter(s, lower-alpha); position: absolute; left: 0; top: .85rem;
+    width: 1.4rem; height: 1.4rem; border-radius: 50%; display: grid; place-items: center;
+    background: var(--surface-2); color: var(--muted); font-size: .75rem; font-weight: 700; }
+
+  /* help */
+  details.help { margin-top: 1rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+  details.help summary { cursor: pointer; padding: .65rem .9rem; font-weight: 600; font-size: .88rem; list-style: none;
+                         display: flex; align-items: center; gap: .5rem; }
+  details.help summary::-webkit-details-marker { display: none; }
+  details.help summary::before { content: "›"; display: inline-block; transition: transform .15s; font-size: 1.1rem; color: var(--muted); }
+  details.help[open] summary::before { transform: rotate(90deg); }
+  .help-body { padding: 0 .9rem .9rem; font-size: .88rem; }
+  .tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--border); margin-bottom: .75rem; }
+  .tab { background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: .45rem .8rem;
+         color: var(--muted); font-weight: 600; }
+  .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+  .panel ol { margin: .25rem 0; padding-left: 1.2rem; }
+  .panel li { margin: .35rem 0; }
+  pre.cmd { position: relative; margin: .4rem 0; padding: .6rem 4.2rem .6rem .75rem; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 8px; font-family: var(--mono); font-size: .8rem;
+            white-space: pre-wrap; word-break: break-all; }
+  pre.cmd button { position: absolute; top: .35rem; right: .35rem; }
+  .example { font-family: var(--mono); font-size: .76rem; color: var(--muted); background: var(--surface);
+             border: 1px dashed var(--border); border-radius: 8px; padding: .5rem .75rem; white-space: pre; overflow-x: auto; }
+  .example mark { background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 0 .15em; }
+
+  /* call */
+  .status { display: flex; align-items: center; gap: .6rem; padding: .7rem 1rem; border-radius: 10px;
+            font-family: var(--mono); font-size: .84rem; font-weight: 600; transition: background-color .25s, color .25s; }
+  .status::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex: none; }
+  .status.ok { background: var(--ok-soft); color: var(--ok); }
+  .status.ok::before { animation: pulse 1.6s infinite; }
+  .status.bad { background: var(--bad-soft); color: var(--bad); }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent); }
+                     100% { box-shadow: 0 0 0 8px transparent; } }
+  .stage { position: relative; margin: .9rem auto 0; max-width: 800px; border-radius: 12px; overflow: hidden; background: #000; }
+  #remote { display: block; width: 100%; aspect-ratio: 4 / 3; max-height: 70vh; object-fit: contain;
+            outline: 4px solid transparent; outline-offset: -4px; transition: outline-color .25s; }
+  #remote.unverified { outline-color: var(--bad); }
+  .pip { position: absolute; right: 12px; bottom: 12px; width: 24%; min-width: 120px; border-radius: 10px;
+         overflow: hidden; border: 2px solid rgb(255 255 255 / .8); box-shadow: 0 4px 16px rgb(0 0 0 / .5); background: #111; }
+  #local { display: block; width: 100%; transform: scaleX(-1); }
+  .placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: #8b949e; font-size: .9rem; pointer-events: none; }
+  .touch { position: absolute; left: 12px; bottom: 12px; display: flex; align-items: center; gap: .6rem;
+           background: rgb(0 0 0 / .7); color: #fff; padding: .5rem .8rem; border-radius: 10px; font-size: .88rem; font-weight: 600; }
+  .touch .key { animation: blink 1s infinite alternate; }
+  @keyframes blink { from { opacity: 1; } to { opacity: .35; } }
+  #btn-retry { position: absolute; left: 12px; bottom: 12px; }
+  .call-foot { justify-content: center; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin-top: .7rem; color: var(--muted); font-size: .8rem; }
+
+  /* log */
+  details.log-card summary { cursor: pointer; font-weight: 600; list-style: none; }
+  details.log-card summary::-webkit-details-marker { display: none; }
+  #log { margin-top: .75rem; max-height: 14rem; overflow: auto; font-family: var(--mono); font-size: .76rem;
+         display: grid; gap: .15rem; }
+  #log > div { padding: .15rem .4rem; border-radius: 5px; }
+  #log .ok { color: var(--ok); } #log .bad { color: var(--bad); background: var(--bad-soft); } #log .warn { color: var(--warn); }
+
+  #toast { opacity: 0; position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%) translateY(150%);
+           background: var(--text); color: var(--bg); padding: .55rem 1rem; border-radius: 9px; font-size: .88rem;
+           font-weight: 600; transition: transform .2s; z-index: 20; max-width: 90vw; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.bad { background: var(--bad); color: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="logo" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3M16 7l3 3M18 5l2 2"/></svg>
+    </div>
+    <div>
+      <div class="brand">ykchat</div>
+      <div class="tagline">Peer-to-peer video with continuous YubiKey presence proofs</div>
+    </div>
+    <div class="spacer"></div>
+    <button id="btn-theme" class="ghost icon" title="Theme" aria-label="Toggle theme"></button>
+  </div>
+</header>
+
+<main>
+  <div class="grid-2">
+    <!-- Step 1 -->
+    <section class="card" id="card-identity">
+      <div class="card-head">
+        <div class="step"><span>1</span></div>
+        <div>
+          <h2>Your identity</h2>
+          <p>One-time setup: let your GPG key vouch for your YubiKey.</p>
+        </div>
+      </div>
+
+      <div id="id-summary" class="identity-summary" hidden>
+        <span id="id-status" class="pill">No identity yet</span>
+        <div id="id-who" class="who"></div>
+        <div id="id-fpr" class="fpr"></div>
+        <button id="btn-reset-id" class="ghost small">Use a different key</button>
+      </div>
+
+      <div id="id-form">
+        <label class="field" for="fpr">GPG fingerprint <span class="hint">· 40 hex characters, spaces are fine</span></label>
+        <input id="fpr" type="text" placeholder="ABCD 1234 …" autocomplete="off" spellcheck="false">
+
+        <details class="help" id="fpr-help">
+          <summary>How do I find my GPG fingerprint?</summary>
+          <div class="help-body">
+            <div class="tabs" role="tablist">
+              <button class="tab" role="tab" data-os="linux">Linux</button>
+              <button class="tab" role="tab" data-os="mac">macOS</button>
+              <button class="tab" role="tab" data-os="win">Windows</button>
+            </div>
+
+            <div class="panel" data-os="linux">
+              <ol>
+                <li>Open a terminal and run:
+                  <pre class="cmd">gpg --list-secret-keys --fingerprint</pre></li>
+                <li>Copy the 40-character line under <code>sec</code> (your primary key), not the <code>ssb</code> subkeys.</li>
+              </ol>
+            </div>
+
+            <div class="panel" data-os="mac">
+              <ol>
+                <li><strong>GPG Suite:</strong> open <em>GPG Keychain</em>, double-click your key, and copy <em>Fingerprint</em> from the Key tab.</li>
+                <li><strong>Homebrew</strong> (<code>brew install gnupg pinentry-mac</code>): in Terminal run
+                  <pre class="cmd">gpg --list-secret-keys --fingerprint</pre>
+                  and copy the 40-character line under <code>sec</code>.</li>
+              </ol>
+            </div>
+
+            <div class="panel" data-os="win">
+              <ol>
+                <li><strong>Kleopatra</strong> (part of <a href="https://gpg4win.org" target="_blank" rel="noopener">Gpg4win</a>): select your key under <em>Certificates</em>, then copy the fingerprint shown in the <em>Details</em> pane (double-click the key if it isn't visible).</li>
+                <li><strong>PowerShell:</strong>
+                  <pre class="cmd">gpg --list-secret-keys --fingerprint</pre>
+                  and copy the 40-character line under <code>sec</code>. Use PowerShell (not <code>cmd.exe</code>) for the signing commands in the next step too.</li>
+              </ol>
+            </div>
+
+            <p style="margin:.75rem 0 .35rem">Example output; the highlighted line is what you want:</p>
+            <div class="example">sec>  ed25519 2025-03-14 [SC]
+      <mark>4853 B8A6 AC40 E551 3372  3A1A 6554 2D79 E5A6 7972</mark>
+      Card serial no. = 0006 12345678
+uid           [ultimate] Alice Example &lt;alice@example.com&gt;
+ssb>  cv25519 2025-03-14 [E]</div>
+            <p class="note">Keys stored on a YubiKey show <code>sec&gt;</code> and a card serial; that's expected.
+              If nothing is listed but your key is on a YubiKey, import your public key (<code>gpg --import mykey.asc</code>),
+              then run <code>gpg --card-status</code> once so GnuPG links the card.</p>
+          </div>
+        </details>
+
+        <div class="actions">
+          <button id="btn-create-cred" class="primary">Create YubiKey credential</button>
+        </div>
+
+        <div id="enroll-step2" hidden>
+          <ol class="substeps">
+            <li>
+              <label class="field" for="sign-cmd">Run in a terminal <span class="hint">· signs the binding and exports your public key</span></label>
+              <div class="copy-wrap">
+                <textarea id="sign-cmd" readonly></textarea>
+                <button class="small" data-copy="sign-cmd">Copy</button>
+              </div>
+            </li>
+            <li>
+              <label class="field" for="binding-asc">Paste the <code>gpg --clearsign</code> output</label>
+              <textarea id="binding-asc" placeholder="-----BEGIN PGP SIGNED MESSAGE-----"></textarea>
+            </li>
+            <li>
+              <label class="field" for="gpg-pub">Paste the <code>gpg --armor --export</code> output</label>
+              <textarea id="gpg-pub" placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----"></textarea>
+            </li>
+          </ol>
+          <div class="actions">
+            <button id="btn-save-id" class="primary">Verify &amp; save identity</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2 -->
+    <section class="card" id="card-connect">
+      <div class="card-head">
+        <div class="step"><span>2</span></div>
+        <div>
+          <h2>Connect</h2>
+          <p>No server: swap two codes over any chat, email or text.</p>
+        </div>
+      </div>
+
+      <label class="field" for="peer-fpr">Peer's GPG fingerprint <span class="hint">· get this from them directly</span></label>
+      <input id="peer-fpr" type="text" placeholder="ABCD 1234 …" autocomplete="off" spellcheck="false">
+
+      <label class="check"><input id="use-stun" type="checkbox" checked>
+        Use public STUN (stun.l.google.com) to get through NAT. Uncheck for LAN-only.</label>
+
+      <div class="actions">
+        <button id="btn-host" class="primary">Create invite</button>
+        <button id="btn-join">Join with their invite</button>
+      </div>
+
+      <label class="field" for="my-code">Your code <span id="code-help" class="hint">· appears here after you create or join</span></label>
+      <div class="copy-wrap">
+        <textarea id="my-code" readonly placeholder="YK1.…"></textarea>
+        <button class="small" data-copy="my-code">Copy</button>
+      </div>
+
+      <label class="field" for="their-code">Their code</label>
+      <textarea id="their-code" placeholder="Paste their invite or reply here"></textarea>
+      <div class="actions">
+        <button id="btn-accept" class="primary" hidden>Connect with reply</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Step 3 -->
+  <section class="card" id="card-call">
+    <div class="card-head">
+      <div class="step"><span>3</span></div>
+      <div>
+        <h2>Call</h2>
+        <p>Touch your YubiKey when prompted. The bar stays green only while your peer's key keeps proving presence.</p>
+      </div>
+    </div>
+    <div id="status" class="status bad">Not connected</div>
+    <div class="stage">
+      <canvas id="remote" width="480" height="360"></canvas>
+      <div id="remote-placeholder" class="placeholder">Peer video appears here once connected</div>
+      <div id="pip" class="pip" hidden><video id="local" autoplay muted playsinline></video></div>
+      <div id="touch-prompt" class="touch" hidden><span class="key">🔑</span> Touch your YubiKey</div>
+      <button id="btn-retry" class="primary" hidden>Prove presence</button>
+    </div>
+    <div class="call-foot">
+      <span>Only the video is covered by the proofs. Audio is not.</span>
+      <span id="call-config"></span>
+    </div>
+    <audio id="remote-audio" autoplay></audio>
+  </section>
+
+  <section class="card">
+    <details class="log-card">
+      <summary>Activity log</summary>
+      <div id="log"></div>
+    </details>
+  </section>
+</main>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

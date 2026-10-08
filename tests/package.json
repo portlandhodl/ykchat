@@ -1,0 +1,3 @@
+{ "name": "ykchat-tests", "private": true, "type": "module",
+  "scripts": { "e2e": "node e2e.mjs" },
+  "devDependencies": { "playwright-core": "^1.50.0" } }
