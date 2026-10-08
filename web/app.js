@@ -33,12 +33,17 @@ function log(msg, cls = "") {
 let identity = JSON.parse(localStorage.getItem(IDENTITY_KEY) || "null");
 let draft = null; // credential created but binding not yet signed
 
-const groupFpr = (f) => f.replace(/(.{4})/g, "$1 ").trim();
+// GnuPG's own layout: groups of four, extra space between the two halves
+const groupFpr = (f) => {
+  const g = f.match(/.{1,4}/g);
+  return [g.slice(0, g.length / 2).join(" "), g.slice(g.length / 2).join(" ")].join("  ");
+};
 
 function renderIdentity() {
   $("id-summary").hidden = !identity;
   $("id-form").hidden = !!identity;
   $("card-identity").classList.toggle("done", !!identity);
+  $("card-connect").classList.toggle("locked", !identity);
   if (identity) {
     $("id-status").textContent = "Ready";
     $("id-status").className = "pill ok";
@@ -170,7 +175,7 @@ async function hostCall() {
   await pc.setLocalDescription(await pc.createOffer());
   await iceGatheringDone(pc);
   $("my-code").value = await packSignal(pc.localDescription);
-  $("code-help").textContent = "· send this invite to your peer, then paste their reply below";
+  $("code-help").textContent = "Send this invite to your peer, then paste their reply below.";
   $("btn-accept").hidden = false;
 }
 
@@ -183,7 +188,7 @@ async function joinCall() {
   await pc.setLocalDescription(await pc.createAnswer());
   await iceGatheringDone(pc);
   $("my-code").value = await packSignal(pc.localDescription);
-  $("code-help").textContent = "· send this reply back to the person who invited you";
+  $("code-help").textContent = "Send this reply back to the person who invited you.";
 }
 
 async function acceptAnswer() {
@@ -472,12 +477,11 @@ async function copyText(text) {
 for (const btn of document.querySelectorAll("[data-copy]")) {
   btn.addEventListener("click", () => copyText($(btn.dataset.copy).value).catch((e) => toast(e.message, true)));
 }
-for (const pre of document.querySelectorAll("pre.cmd")) {
+for (const cmd of document.querySelectorAll(".cmd")) {
   const btn = document.createElement("button");
-  btn.className = "small";
   btn.textContent = "Copy";
-  btn.addEventListener("click", () => copyText(pre.firstChild.textContent.trim()).catch((e) => toast(e.message, true)));
-  pre.append(btn);
+  btn.addEventListener("click", () => copyText(cmd.firstElementChild.textContent.trim()).catch((e) => toast(e.message, true)));
+  cmd.append(btn);
 }
 
 // Live fingerprint validation

@@ -10,358 +10,401 @@
 </script>
 <style>
   :root {
-    --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --border: #dfe3e8;
-    --text: #1b1f24; --muted: #5d6673; --accent: #3b5bdb; --accent-text: #ffffff; --accent-soft: #e7ecfd;
-    --ok: #1f8a4c; --ok-soft: #e3f4ea; --bad: #c9302c; --bad-soft: #fbe7e6; --warn: #9a6700; --warn-soft: #fff4d6;
-    --shadow: 0 1px 2px rgb(16 24 40 / .06), 0 4px 16px rgb(16 24 40 / .06);
-    --radius: 14px;
-    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    --bg: #f5f6f8; --surface: #ffffff; --surface-2: #f3f4f6; --border: #e3e6ea; --border-strong: #cfd4da;
+    --text: #15181d; --muted: #646d78; --faint: #8a929c;
+    --accent: #3a57d6; --accent-hover: #3049bd; --accent-text: #ffffff; --accent-soft: #eaeefc;
+    --ok: #1d7f46; --ok-soft: #e6f4ec; --bad: #c4312d; --bad-soft: #fcebea; --warn: #8a5d00; --warn-soft: #fdf3dc;
+    --shadow: 0 1px 2px rgb(16 24 40 / .05);
     color-scheme: light;
   }
   :root[data-theme="dark"] {
-    --bg: #0e1116; --surface: #161b22; --surface-2: #1d232c; --border: #2b333e;
-    --text: #e6eaf0; --muted: #9aa5b4; --accent: #7c95ff; --accent-text: #0e1116; --accent-soft: #1f2a4d;
-    --ok: #3fb96d; --ok-soft: #12291c; --bad: #f2615c; --bad-soft: #351716; --warn: #e3b341; --warn-soft: #2e2510;
-    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 4px 16px rgb(0 0 0 / .3);
+    --bg: #0d1015; --surface: #151a21; --surface-2: #1b2129; --border: #262d37; --border-strong: #353e4a;
+    --text: #e7eaef; --muted: #9ba4b0; --faint: #6f7884;
+    --accent: #7b93ff; --accent-hover: #93a7ff; --accent-text: #0d1015; --accent-soft: #1d2647;
+    --ok: #46c27a; --ok-soft: #13291d; --bad: #f0625d; --bad-soft: #341818; --warn: #e2b13f; --warn-soft: #2c2412;
+    --shadow: 0 1px 2px rgb(0 0 0 / .3);
     color-scheme: dark;
   }
   @media (prefers-color-scheme: dark) {
     :root[data-theme="auto"] {
-      --bg: #0e1116; --surface: #161b22; --surface-2: #1d232c; --border: #2b333e;
-      --text: #e6eaf0; --muted: #9aa5b4; --accent: #7c95ff; --accent-text: #0e1116; --accent-soft: #1f2a4d;
-      --ok: #3fb96d; --ok-soft: #12291c; --bad: #f2615c; --bad-soft: #351716; --warn: #e3b341; --warn-soft: #2e2510;
-      --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 4px 16px rgb(0 0 0 / .3);
+      --bg: #0d1015; --surface: #151a21; --surface-2: #1b2129; --border: #262d37; --border-strong: #353e4a;
+      --text: #e7eaef; --muted: #9ba4b0; --faint: #6f7884;
+      --accent: #7b93ff; --accent-hover: #93a7ff; --accent-text: #0d1015; --accent-soft: #1d2647;
+      --ok: #46c27a; --ok-soft: #13291d; --bad: #f0625d; --bad-soft: #341818; --warn: #e2b13f; --warn-soft: #2c2412;
+      --shadow: 0 1px 2px rgb(0 0 0 / .3);
       color-scheme: dark;
     }
   }
 
+  /* Layout tokens: one column, every card body starts at the same x as its title. */
+  :root {
+    --page: 820px; --pad: 28px; --badge: 28px; --gutter: 16px; --indent: calc(var(--badge) + var(--gutter));
+    --radius: 12px; --radius-sm: 8px; --control-h: 40px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
-    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    transition: background-color .2s, color .2s;
+    font: 14px/1.55 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
-  [hidden] { display: none !important; }
-  code, .mono { font-family: var(--mono); font-size: .88em; }
-  code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: .05em .35em; }
-  a { color: var(--accent); }
+  h1, h2, p { margin: 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: var(--mono); font-size: .86em; background: var(--surface-2); border: 1px solid var(--border);
+         border-radius: 4px; padding: .05em .3em; }
 
-  /* header */
-  header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 85%, transparent);
-           backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
-  .bar { max-width: 1080px; margin: 0 auto; padding: .7rem 1.25rem; display: flex; align-items: center; gap: .75rem; }
+  /* ---------- header */
+  header { border-bottom: 1px solid var(--border); background: var(--surface); }
+  .container { max-width: var(--page); margin: 0 auto; padding: 0 20px; }
+  .bar { height: 60px; display: flex; align-items: center; gap: 12px; }
   .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--accent-text);
-          display: grid; place-items: center; }
-  .brand { font-weight: 700; font-size: 1.1rem; letter-spacing: -.01em; }
-  .tagline { color: var(--muted); font-size: .88rem; }
-  .spacer { flex: 1; }
+          display: grid; place-items: center; flex: none; }
+  .brand { font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
+  .tagline { color: var(--muted); font-size: 13px; }
+  .bar .spacer { flex: 1; }
 
-  main { max-width: 1080px; margin: 0 auto; padding: 1.25rem; display: grid; gap: 1.25rem; }
+  main.container { padding-top: 28px; padding-bottom: 48px; display: grid; gap: 16px; }
 
-  /* cards */
+  /* ---------- cards */
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-          box-shadow: var(--shadow); padding: 1.25rem 1.4rem; }
-  .card-head { display: flex; align-items: center; gap: .8rem; margin-bottom: .9rem; }
-  .step { width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center;
-          font-weight: 700; font-size: .85rem; background: var(--accent-soft); color: var(--accent); }
-  .card.done .step { background: var(--ok); color: #fff; }
-  .card.done .step::before { content: "✓"; }
-  .card.done .step span { display: none; }
-  h2 { margin: 0; font-size: 1.05rem; }
-  .card-head p { margin: 0; color: var(--muted); font-size: .88rem; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start; }
-  @media (max-width: 860px) { .grid-2 { grid-template-columns: 1fr; } }
+          box-shadow: var(--shadow); padding: 22px var(--pad) var(--pad); transition: opacity .2s; }
+  .card.locked { opacity: .5; pointer-events: none; }
+  .card-head { display: grid; grid-template-columns: var(--badge) 1fr auto; column-gap: var(--gutter); align-items: center; }
+  .card-head .step { grid-row: span 2; align-self: start; margin-top: 1px; }
+  .card-head h2 { font-size: 15px; font-weight: 650; line-height: 30px; }
+  .card-head p { grid-column: 2; color: var(--muted); font-size: 13px; }
+  .card-head .aside { grid-column: 3; grid-row: 1; }
+  .card-body { margin-left: var(--indent); margin-top: 20px; }
+  @media (max-width: 640px) { :root { --pad: 18px; } .card-body { margin-left: 0; } }
 
-  /* form controls */
-  label.field { display: block; font-weight: 600; font-size: .85rem; margin: .9rem 0 .35rem; }
-  label.field .hint { font-weight: 400; color: var(--muted); }
+  .step { width: var(--badge); height: var(--badge); border-radius: 50%; display: grid; place-items: center;
+          font-weight: 650; font-size: 13px; background: var(--accent-soft); color: var(--accent); }
+  .card.done .step { font-size: 0; background: var(--ok) center / 14px no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+
+  /* ---------- fields */
+  .field + .field { margin-top: 18px; }
+  .field-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+                 min-height: 26px; margin-bottom: 6px; }
+  .field-label label { font-weight: 600; font-size: 13px; }
+  .field-label .hint { color: var(--muted); font-weight: 400; font-size: 12.5px; }
+  .hint-below { color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+
   input[type=text], textarea {
-    width: 100%; font-family: var(--mono); font-size: .82rem; color: var(--text);
-    background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: .6rem .7rem;
-    transition: border-color .15s, box-shadow .15s;
+    display: block; width: 100%; color: var(--text); background: var(--surface);
+    border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    font-family: var(--mono); transition: border-color .15s, box-shadow .15s;
   }
-  input[type=text] { font-size: .95rem; letter-spacing: .02em; }
-  textarea { height: 6.5rem; resize: vertical; }
+  input[type=text] { height: var(--control-h); padding: 0 12px; font-size: 14px; letter-spacing: .02em; }
+  textarea { height: 104px; padding: 10px 12px; font-size: 12px; line-height: 1.5; resize: vertical; word-break: break-all; }
+  textarea[readonly] { background: var(--surface-2); }
+  input::placeholder, textarea::placeholder { color: var(--faint); }
   input[type=text]:focus, textarea:focus { outline: none; border-color: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
   input.valid { border-color: var(--ok); }
   input.invalid { border-color: var(--bad); }
-  .check { display: flex; align-items: center; gap: .5rem; margin-top: .8rem; font-size: .88rem; color: var(--muted); }
-  .check input { accent-color: var(--accent); width: 16px; height: 16px; }
 
-  .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+  .switch { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; margin-top: 18px;
+            font-size: 13px; color: var(--muted); cursor: pointer; }
+  .switch input { margin: 2px 0 0; width: 16px; height: 16px; accent-color: var(--accent); }
+  .switch strong { color: var(--text); font-weight: 600; }
+
+  /* ---------- buttons */
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .actions.split { justify-content: space-between; align-items: center; }
   button {
-    font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer; border-radius: 9px;
-    padding: .55rem 1rem; border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
-    transition: filter .15s, transform .05s, background-color .15s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: var(--control-h); padding: 0 16px; font: inherit; font-weight: 600; font-size: 13.5px;
+    color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    cursor: pointer; white-space: nowrap; transition: background-color .15s, border-color .15s, color .15s;
   }
-  button:hover { filter: brightness(1.06); }
-  button:active { transform: translateY(1px); }
-  button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
-  button.ghost { background: transparent; }
-  button.small { padding: .3rem .6rem; font-size: .78rem; }
-  button.icon { padding: .4rem .6rem; }
+  button:hover { background: var(--surface-2); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button.link { height: auto; padding: 0; border: none; background: none; color: var(--accent); font-weight: 600; font-size: 12.5px; }
+  button.link:hover { background: none; text-decoration: underline; }
+  button.icon { width: 36px; height: 36px; padding: 0; font-size: 16px; }
 
-  .copy-wrap { position: relative; }
-  .copy-wrap button { position: absolute; top: .45rem; right: .45rem; }
-  .copy-wrap textarea { padding-right: 4.5rem; }
-
-  /* pills, notes */
-  .pill { display: inline-flex; align-items: center; gap: .45rem; font-size: .82rem; font-weight: 600;
-          padding: .3rem .7rem; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
-  .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  /* ---------- identity summary */
+  .pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px;
+          font-size: 12px; font-weight: 600; background: var(--surface-2); color: var(--muted); }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
   .pill.ok { background: var(--ok-soft); color: var(--ok); }
-  .note { border-radius: 10px; padding: .7rem .9rem; font-size: .87rem; margin-top: .9rem;
-          background: var(--surface-2); color: var(--muted); }
-  .note.warn { background: var(--warn-soft); color: var(--warn); }
+  .identity { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 16px;
+              padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+  .identity .who { font-weight: 600; }
+  .identity .fpr { grid-column: 1; font-family: var(--mono); font-size: 13px; color: var(--muted); letter-spacing: .02em; white-space: pre; }
+  .identity button { grid-column: 2; grid-row: 1 / span 2; }
 
-  .identity-summary { display: grid; gap: .6rem; justify-items: start; }
-  .identity-summary .who { font-weight: 600; }
-  .fpr { font-family: var(--mono); font-size: .9rem; letter-spacing: .03em; word-spacing: .2em;
-         background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: .55rem .75rem; }
+  /* ---------- enrollment sub-steps */
+  .substeps { list-style: none; margin: 24px 0 0; padding: 20px 0 0; border-top: 1px solid var(--border); counter-reset: s; }
+  .substeps > li { counter-increment: s; display: grid; grid-template-columns: 22px 1fr; column-gap: 12px; }
+  .substeps > li + li { margin-top: 18px; }
+  .substeps > li::before { content: counter(s); width: 22px; height: 22px; margin-top: 2px; border-radius: 50%;
+    display: grid; place-items: center; background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--muted); font-size: 11px; font-weight: 700; }
 
-  .substeps { counter-reset: s; list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: .25rem; }
-  .substeps > li { counter-increment: s; position: relative; padding-left: 2rem; }
-  .substeps > li::before { content: counter(s, lower-alpha); position: absolute; left: 0; top: .85rem;
-    width: 1.4rem; height: 1.4rem; border-radius: 50%; display: grid; place-items: center;
-    background: var(--surface-2); color: var(--muted); font-size: .75rem; font-weight: 700; }
-
-  /* help */
-  details.help { margin-top: 1rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
-  details.help summary { cursor: pointer; padding: .65rem .9rem; font-weight: 600; font-size: .88rem; list-style: none;
-                         display: flex; align-items: center; gap: .5rem; }
-  details.help summary::-webkit-details-marker { display: none; }
-  details.help summary::before { content: "›"; display: inline-block; transition: transform .15s; font-size: 1.1rem; color: var(--muted); }
-  details.help[open] summary::before { transform: rotate(90deg); }
-  .help-body { padding: 0 .9rem .9rem; font-size: .88rem; }
-  .tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--border); margin-bottom: .75rem; }
-  .tab { background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: .45rem .8rem;
-         color: var(--muted); font-weight: 600; }
+  /* ---------- help */
+  details.help { margin-top: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  details.help > summary { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px;
+    cursor: pointer; list-style: none; font-size: 13px; font-weight: 600; color: var(--muted); }
+  details.help > summary::-webkit-details-marker { display: none; }
+  details.help > summary::before { content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0;
+    transform: rotate(-45deg); transition: transform .15s; margin-right: 2px; }
+  details.help[open] > summary::before { transform: rotate(45deg); }
+  details.help > summary:hover { color: var(--text); }
+  .help-body { padding: 0 16px 16px; border-top: 1px solid var(--border); font-size: 13px; }
+  .tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--border); margin: 0 -16px 14px; padding: 0 16px; }
+  .tab { height: 40px; padding: 0; border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none;
+         color: var(--muted); font-size: 13px; margin-bottom: -1px; }
+  .tab:hover { background: none; color: var(--text); }
   .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
-  .panel ol { margin: .25rem 0; padding-left: 1.2rem; }
-  .panel li { margin: .35rem 0; }
-  pre.cmd { position: relative; margin: .4rem 0; padding: .6rem 4.2rem .6rem .75rem; background: var(--surface);
-            border: 1px solid var(--border); border-radius: 8px; font-family: var(--mono); font-size: .8rem;
-            white-space: pre-wrap; word-break: break-all; }
-  pre.cmd button { position: absolute; top: .35rem; right: .35rem; }
-  .example { font-family: var(--mono); font-size: .76rem; color: var(--muted); background: var(--surface);
-             border: 1px dashed var(--border); border-radius: 8px; padding: .5rem .75rem; white-space: pre; overflow-x: auto; }
-  .example mark { background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 0 .15em; }
+  .panel ol { margin: 0; padding-left: 18px; }
+  .panel li + li { margin-top: 10px; }
+  .help-body h4 { margin: 16px 0 8px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .cmd { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 0;
+         height: 38px; padding: 0 6px 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+         background: var(--surface-2); font-family: var(--mono); font-size: 12.5px; overflow-x: auto; white-space: nowrap; }
+  .cmd button { height: 28px; padding: 0 10px; font-size: 12px; flex: none; }
+  .example { margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2);
+             font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--muted); white-space: pre; overflow-x: auto; }
+  .example mark { background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 1px 3px; }
+  .note { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--muted); font-size: 12.5px; }
 
-  /* call */
-  .status { display: flex; align-items: center; gap: .6rem; padding: .7rem 1rem; border-radius: 10px;
-            font-family: var(--mono); font-size: .84rem; font-weight: 600; transition: background-color .25s, color .25s; }
-  .status::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex: none; }
+  /* ---------- call */
+  .status { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border-radius: var(--radius-sm);
+            font-family: var(--mono); font-size: 12.5px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+            transition: background-color .25s, color .25s; }
+  .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
   .status.ok { background: var(--ok-soft); color: var(--ok); }
   .status.ok::before { animation: pulse 1.6s infinite; }
   .status.bad { background: var(--bad-soft); color: var(--bad); }
-  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent); }
-                     100% { box-shadow: 0 0 0 8px transparent; } }
-  .stage { position: relative; margin: .9rem auto 0; max-width: 800px; border-radius: 12px; overflow: hidden; background: #000; }
-  #remote { display: block; width: 100%; aspect-ratio: 4 / 3; max-height: 70vh; object-fit: contain;
-            outline: 4px solid transparent; outline-offset: -4px; transition: outline-color .25s; }
+  .status.idle { background: var(--surface-2); color: var(--muted); }
+  @keyframes pulse { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent); } to { box-shadow: 0 0 0 7px transparent; } }
+
+  .stage { position: relative; margin-top: 12px; border-radius: var(--radius-sm); overflow: hidden; background: #0a0c10; }
+  #remote { display: block; width: 100%; aspect-ratio: 4 / 3;
+            outline: 3px solid transparent; outline-offset: -3px; transition: outline-color .25s; }
   #remote.unverified { outline-color: var(--bad); }
-  .pip { position: absolute; right: 12px; bottom: 12px; width: 24%; min-width: 120px; border-radius: 10px;
-         overflow: hidden; border: 2px solid rgb(255 255 255 / .8); box-shadow: 0 4px 16px rgb(0 0 0 / .5); background: #111; }
-  #local { display: block; width: 100%; transform: scaleX(-1); }
-  .placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: #8b949e; font-size: .9rem; pointer-events: none; }
-  .touch { position: absolute; left: 12px; bottom: 12px; display: flex; align-items: center; gap: .6rem;
-           background: rgb(0 0 0 / .7); color: #fff; padding: .5rem .8rem; border-radius: 10px; font-size: .88rem; font-weight: 600; }
-  .touch .key { animation: blink 1s infinite alternate; }
-  @keyframes blink { from { opacity: 1; } to { opacity: .35; } }
-  #btn-retry { position: absolute; left: 12px; bottom: 12px; }
-  .call-foot { justify-content: center; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin-top: .7rem; color: var(--muted); font-size: .8rem; }
+  .placeholder { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px;
+                 color: #7d8590; font-size: 13px; pointer-events: none; }
+  .placeholder svg { opacity: .6; }
+  .pip { position: absolute; right: 12px; bottom: 12px; width: 26%; border-radius: 6px; overflow: hidden;
+         border: 1px solid rgb(255 255 255 / .25); box-shadow: 0 6px 20px rgb(0 0 0 / .45); background: #111; }
+  #local { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; transform: scaleX(-1); }
+  .overlay-left { position: absolute; left: 12px; bottom: 12px; }
+  .touch { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 6px;
+           background: rgb(10 12 16 / .78); color: #fff; font-size: 13px; font-weight: 600; backdrop-filter: blur(4px); }
+  .touch::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #e2b13f; animation: blink .8s infinite alternate; }
+  @keyframes blink { to { opacity: .25; } }
+  .call-foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--muted); font-size: 12.5px; }
 
-  /* log */
-  details.log-card summary { cursor: pointer; font-weight: 600; list-style: none; }
-  details.log-card summary::-webkit-details-marker { display: none; }
-  #log { margin-top: .75rem; max-height: 14rem; overflow: auto; font-family: var(--mono); font-size: .76rem;
-         display: grid; gap: .15rem; }
-  #log > div { padding: .15rem .4rem; border-radius: 5px; }
-  #log .ok { color: var(--ok); } #log .bad { color: var(--bad); background: var(--bad-soft); } #log .warn { color: var(--warn); }
+  /* ---------- log */
+  details.log > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; list-style: none;
+                          font-size: 13px; font-weight: 600; color: var(--muted); }
+  details.log > summary::-webkit-details-marker { display: none; }
+  details.log > summary::after { content: "Show"; font-weight: 600; color: var(--accent); font-size: 12.5px; }
+  details.log[open] > summary::after { content: "Hide"; }
+  .log-card { padding: 16px var(--pad); }
+  #log { margin-top: 12px; max-height: 240px; overflow: auto; font-family: var(--mono); font-size: 12px; }
+  #log > div { padding: 3px 0; border-bottom: 1px solid var(--border); }
+  #log .ok { color: var(--ok); } #log .bad { color: var(--bad); } #log .warn { color: var(--warn); }
 
-  #toast { opacity: 0; position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%) translateY(150%);
-           background: var(--text); color: var(--bg); padding: .55rem 1rem; border-radius: 9px; font-size: .88rem;
-           font-weight: 600; transition: transform .2s; z-index: 20; max-width: 90vw; }
-  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
+           max-width: min(560px, 90vw); padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+           background: var(--text); color: var(--bg); box-shadow: 0 8px 24px rgb(0 0 0 / .2); transition: opacity .2s, transform .2s; z-index: 20; }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
   #toast.bad { background: var(--bad); color: #fff; }
 </style>
 </head>
 <body>
 <header>
-  <div class="bar">
+  <div class="container bar">
     <div class="logo" aria-hidden="true">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3M16 7l3 3M18 5l2 2"/></svg>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3M16 7l3 3M18 5l2 2"/></svg>
     </div>
     <div>
       <div class="brand">ykchat</div>
       <div class="tagline">Peer-to-peer video with continuous YubiKey presence proofs</div>
     </div>
     <div class="spacer"></div>
-    <button id="btn-theme" class="ghost icon" title="Theme" aria-label="Toggle theme"></button>
+    <button id="btn-theme" class="icon" aria-label="Toggle theme"></button>
   </div>
 </header>
 
-<main>
-  <div class="grid-2">
-    <!-- Step 1 -->
-    <section class="card" id="card-identity">
-      <div class="card-head">
-        <div class="step"><span>1</span></div>
-        <div>
-          <h2>Your identity</h2>
-          <p>One-time setup: let your GPG key vouch for your YubiKey.</p>
-        </div>
-      </div>
+<main class="container">
+  <!-- Step 1 -->
+  <section class="card" id="card-identity">
+    <div class="card-head">
+      <div class="step">1</div>
+      <h2>Your identity</h2>
+      <p>One-time setup: your GPG key vouches for your YubiKey.</p>
+    </div>
 
-      <div id="id-summary" class="identity-summary" hidden>
-        <span id="id-status" class="pill">No identity yet</span>
-        <div id="id-who" class="who"></div>
+    <div class="card-body">
+      <div id="id-summary" class="identity" hidden>
+        <div class="who"><span id="id-status" class="pill">No identity yet</span>&nbsp; <span id="id-who"></span></div>
         <div id="id-fpr" class="fpr"></div>
-        <button id="btn-reset-id" class="ghost small">Use a different key</button>
+        <button id="btn-reset-id">Use a different key</button>
       </div>
 
       <div id="id-form">
-        <label class="field" for="fpr">GPG fingerprint <span class="hint">· 40 hex characters, spaces are fine</span></label>
-        <input id="fpr" type="text" placeholder="ABCD 1234 …" autocomplete="off" spellcheck="false">
+        <div class="field">
+          <div class="field-label"><label for="fpr">GPG fingerprint</label><span class="hint">40 hex characters, spaces are fine</span></div>
+          <input id="fpr" type="text" placeholder="e.g. 4853 B8A6 AC40 E551 3372  3A1A 6554 2D79 E5A6 7972" autocomplete="off" spellcheck="false">
 
-        <details class="help" id="fpr-help">
-          <summary>How do I find my GPG fingerprint?</summary>
-          <div class="help-body">
-            <div class="tabs" role="tablist">
-              <button class="tab" role="tab" data-os="linux">Linux</button>
-              <button class="tab" role="tab" data-os="mac">macOS</button>
-              <button class="tab" role="tab" data-os="win">Windows</button>
-            </div>
+          <details class="help" id="fpr-help">
+            <summary>How do I find my GPG fingerprint?</summary>
+            <div class="help-body">
+              <div class="tabs" role="tablist">
+                <button class="tab" role="tab" data-os="linux">Linux</button>
+                <button class="tab" role="tab" data-os="mac">macOS</button>
+                <button class="tab" role="tab" data-os="win">Windows</button>
+              </div>
 
-            <div class="panel" data-os="linux">
-              <ol>
-                <li>Open a terminal and run:
-                  <pre class="cmd">gpg --list-secret-keys --fingerprint</pre></li>
-                <li>Copy the 40-character line under <code>sec</code> (your primary key), not the <code>ssb</code> subkeys.</li>
-              </ol>
-            </div>
+              <div class="panel" data-os="linux">
+                <ol>
+                  <li>Open a terminal and run:
+                    <div class="cmd"><span>gpg --list-secret-keys --fingerprint</span></div></li>
+                  <li>Copy the 40-character line under <code>sec</code> (your primary key), not the <code>ssb</code> subkeys.</li>
+                </ol>
+              </div>
 
-            <div class="panel" data-os="mac">
-              <ol>
-                <li><strong>GPG Suite:</strong> open <em>GPG Keychain</em>, double-click your key, and copy <em>Fingerprint</em> from the Key tab.</li>
-                <li><strong>Homebrew</strong> (<code>brew install gnupg pinentry-mac</code>): in Terminal run
-                  <pre class="cmd">gpg --list-secret-keys --fingerprint</pre>
-                  and copy the 40-character line under <code>sec</code>.</li>
-              </ol>
-            </div>
+              <div class="panel" data-os="mac">
+                <ol>
+                  <li><strong>GPG Suite:</strong> open <em>GPG Keychain</em>, double-click your key and copy the <em>Fingerprint</em>.</li>
+                  <li><strong>Homebrew</strong> (<code>brew install gnupg pinentry-mac</code>): in Terminal run
+                    <div class="cmd"><span>gpg --list-secret-keys --fingerprint</span></div>
+                    and copy the 40-character line under <code>sec</code>.</li>
+                </ol>
+              </div>
 
-            <div class="panel" data-os="win">
-              <ol>
-                <li><strong>Kleopatra</strong> (part of <a href="https://gpg4win.org" target="_blank" rel="noopener">Gpg4win</a>): select your key under <em>Certificates</em>, then copy the fingerprint shown in the <em>Details</em> pane (double-click the key if it isn't visible).</li>
-                <li><strong>PowerShell:</strong>
-                  <pre class="cmd">gpg --list-secret-keys --fingerprint</pre>
-                  and copy the 40-character line under <code>sec</code>. Use PowerShell (not <code>cmd.exe</code>) for the signing commands in the next step too.</li>
-              </ol>
-            </div>
+              <div class="panel" data-os="win">
+                <ol>
+                  <li><strong>Kleopatra</strong> (part of <a href="https://gpg4win.org" target="_blank" rel="noopener">Gpg4win</a>): select your key under <em>Certificates</em> and copy the fingerprint from the <em>Details</em> pane.</li>
+                  <li><strong>PowerShell:</strong>
+                    <div class="cmd"><span>gpg --list-secret-keys --fingerprint</span></div>
+                    then copy the 40-character line under <code>sec</code>. Use PowerShell, not <code>cmd.exe</code>, for the signing step too.</li>
+                </ol>
+              </div>
 
-            <p style="margin:.75rem 0 .35rem">Example output; the highlighted line is what you want:</p>
-            <div class="example">sec>  ed25519 2025-03-14 [SC]
+              <h4>Example output</h4>
+              <div class="example">sec>  ed25519 2025-03-14 [SC]
       <mark>4853 B8A6 AC40 E551 3372  3A1A 6554 2D79 E5A6 7972</mark>
       Card serial no. = 0006 12345678
 uid           [ultimate] Alice Example &lt;alice@example.com&gt;
 ssb>  cv25519 2025-03-14 [E]</div>
-            <p class="note">Keys stored on a YubiKey show <code>sec&gt;</code> and a card serial; that's expected.
-              If nothing is listed but your key is on a YubiKey, import your public key (<code>gpg --import mykey.asc</code>),
-              then run <code>gpg --card-status</code> once so GnuPG links the card.</p>
-          </div>
-        </details>
+              <p class="note">Keys on a YubiKey show as <code>sec&gt;</code> with a card serial. If nothing is listed, import your public key
+                (<code>gpg --import mykey.asc</code>) and run <code>gpg --card-status</code> once so GnuPG links the card.</p>
+            </div>
+          </details>
+        </div>
 
         <div class="actions">
           <button id="btn-create-cred" class="primary">Create YubiKey credential</button>
         </div>
 
-        <div id="enroll-step2" hidden>
-          <ol class="substeps">
-            <li>
-              <label class="field" for="sign-cmd">Run in a terminal <span class="hint">· signs the binding and exports your public key</span></label>
-              <div class="copy-wrap">
-                <textarea id="sign-cmd" readonly></textarea>
-                <button class="small" data-copy="sign-cmd">Copy</button>
-              </div>
-            </li>
-            <li>
-              <label class="field" for="binding-asc">Paste the <code>gpg --clearsign</code> output</label>
-              <textarea id="binding-asc" placeholder="-----BEGIN PGP SIGNED MESSAGE-----"></textarea>
-            </li>
-            <li>
-              <label class="field" for="gpg-pub">Paste the <code>gpg --armor --export</code> output</label>
-              <textarea id="gpg-pub" placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----"></textarea>
-            </li>
-          </ol>
-          <div class="actions">
-            <button id="btn-save-id" class="primary">Verify &amp; save identity</button>
-          </div>
-        </div>
+        <ol id="enroll-step2" class="substeps" hidden>
+          <li>
+            <div class="field">
+              <div class="field-label"><label for="sign-cmd">Run these two commands</label><button class="link" data-copy="sign-cmd">Copy</button></div>
+              <textarea id="sign-cmd" spellcheck="false" readonly></textarea>
+            </div>
+          </li>
+          <li>
+            <div class="field">
+              <div class="field-label"><label for="binding-asc">Paste the <code>gpg --clearsign</code> output</label></div>
+              <textarea id="binding-asc" spellcheck="false" placeholder="-----BEGIN PGP SIGNED MESSAGE-----"></textarea>
+            </div>
+          </li>
+          <li>
+            <div class="field">
+              <div class="field-label"><label for="gpg-pub">Paste the <code>gpg --armor --export</code> output</label></div>
+              <textarea id="gpg-pub" spellcheck="false" placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----"></textarea>
+            </div>
+            <div class="actions">
+              <button id="btn-save-id" class="primary">Verify &amp; save identity</button>
+            </div>
+          </li>
+        </ol>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- Step 2 -->
-    <section class="card" id="card-connect">
-      <div class="card-head">
-        <div class="step"><span>2</span></div>
-        <div>
-          <h2>Connect</h2>
-          <p>No server: swap two codes over any chat, email or text.</p>
-        </div>
+  <!-- Step 2 -->
+  <section class="card" id="card-connect">
+    <div class="card-head">
+      <div class="step">2</div>
+      <h2>Connect</h2>
+      <p>No server: swap two codes over any chat, email or text.</p>
+    </div>
+
+    <div class="card-body">
+      <div class="field">
+        <div class="field-label"><label for="peer-fpr">Peer's GPG fingerprint</label><span class="hint">get this from them directly</span></div>
+        <input id="peer-fpr" type="text" placeholder="40 hex characters" autocomplete="off" spellcheck="false">
       </div>
 
-      <label class="field" for="peer-fpr">Peer's GPG fingerprint <span class="hint">· get this from them directly</span></label>
-      <input id="peer-fpr" type="text" placeholder="ABCD 1234 …" autocomplete="off" spellcheck="false">
-
-      <label class="check"><input id="use-stun" type="checkbox" checked>
-        Use public STUN (stun.l.google.com) to get through NAT. Uncheck for LAN-only.</label>
+      <label class="switch"><input id="use-stun" type="checkbox" checked>
+        <span><strong>Use public STUN</strong> (stun.l.google.com) to get through home routers. Turn off for LAN-only calls.</span></label>
 
       <div class="actions">
         <button id="btn-host" class="primary">Create invite</button>
         <button id="btn-join">Join with their invite</button>
       </div>
 
-      <label class="field" for="my-code">Your code <span id="code-help" class="hint">· appears here after you create or join</span></label>
-      <div class="copy-wrap">
-        <textarea id="my-code" readonly placeholder="YK1.…"></textarea>
-        <button class="small" data-copy="my-code">Copy</button>
+      <div class="field" style="margin-top: 24px">
+        <div class="field-label"><label for="my-code">Your code</label><button class="link" data-copy="my-code">Copy</button></div>
+        <textarea id="my-code" spellcheck="false" readonly placeholder="Appears here after you create an invite or join one"></textarea>
+        <div id="code-help" class="hint-below"></div>
       </div>
 
-      <label class="field" for="their-code">Their code</label>
-      <textarea id="their-code" placeholder="Paste their invite or reply here"></textarea>
+      <div class="field">
+        <div class="field-label"><label for="their-code">Their code</label></div>
+        <textarea id="their-code" spellcheck="false" placeholder="Paste their invite or reply here"></textarea>
+      </div>
       <div class="actions">
         <button id="btn-accept" class="primary" hidden>Connect with reply</button>
       </div>
-    </section>
-  </div>
+    </div>
+  </section>
 
   <!-- Step 3 -->
   <section class="card" id="card-call">
     <div class="card-head">
-      <div class="step"><span>3</span></div>
-      <div>
-        <h2>Call</h2>
-        <p>Touch your YubiKey when prompted. The bar stays green only while your peer's key keeps proving presence.</p>
+      <div class="step">3</div>
+      <h2>Call</h2>
+      <p>Touch your YubiKey when prompted. Green means the peer's key is proving presence right now.</p>
+    </div>
+
+    <div class="card-body">
+      <div id="status" class="status idle">Not connected</div>
+      <div class="stage">
+        <canvas id="remote" width="480" height="360"></canvas>
+        <div id="remote-placeholder" class="placeholder">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.2 3.1a.5.5 0 0 0 .8-.4V8.3a.5.5 0 0 0-.8-.4L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+          Peer video appears here once connected
+        </div>
+        <div id="pip" class="pip" hidden><video id="local" autoplay muted playsinline></video></div>
+        <div class="overlay-left">
+          <div id="touch-prompt" class="touch" hidden>Touch your YubiKey</div>
+          <button id="btn-retry" class="primary" hidden>Prove presence</button>
+        </div>
       </div>
+      <div class="call-foot">
+        <span>Only the video is covered by the proofs, not the audio.</span>
+        <span id="call-config"></span>
+      </div>
+      <audio id="remote-audio" autoplay></audio>
     </div>
-    <div id="status" class="status bad">Not connected</div>
-    <div class="stage">
-      <canvas id="remote" width="480" height="360"></canvas>
-      <div id="remote-placeholder" class="placeholder">Peer video appears here once connected</div>
-      <div id="pip" class="pip" hidden><video id="local" autoplay muted playsinline></video></div>
-      <div id="touch-prompt" class="touch" hidden><span class="key">🔑</span> Touch your YubiKey</div>
-      <button id="btn-retry" class="primary" hidden>Prove presence</button>
-    </div>
-    <div class="call-foot">
-      <span>Only the video is covered by the proofs. Audio is not.</span>
-      <span id="call-config"></span>
-    </div>
-    <audio id="remote-audio" autoplay></audio>
   </section>
 
-  <section class="card">
-    <details class="log-card">
+  <section class="card log-card">
+    <details class="log">
       <summary>Activity log</summary>
       <div id="log"></div>
     </details>
