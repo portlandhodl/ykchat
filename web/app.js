@@ -2,7 +2,7 @@
 // continuous YubiKey presence proofs. See protocol.js for the crypto.
 
 import {
-  ACK_WINDOW, PROTOCOL_VERSION, PeerVerifier, b64url, bindingText, canonical, concat, frameLeaf, fromUtf8, hex,
+  ACK_WINDOW, PROTOCOL_VERSION, PeerVerifier, b64url, bindingText, canonical, chatLeaf, concat, frameLeaf, fromUtf8, hex,
   merkleRoot, normFpr, sessionId, sha256, signWithWebAuthn, u64, unb64url, unhex, utf8, verifyBinding,
 } from "./protocol.js";
 
@@ -17,6 +17,8 @@ const CONFIG = {
 const CHUNK = 16000;           // safe DataChannel message size across browsers
 const MAX_BUFFERED = 4 << 20;  // skip (and don't commit to) frames if the channel is backed up
 const IDENTITY_KEY = "ykchat.identity";
+const RESUME_KEY = "ykchat.resume";  // sessionStorage: screen to reopen after "New call"
+const MAX_CHAT = 2000;
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -39,11 +41,37 @@ const groupFpr = (f) => {
   return [g.slice(0, g.length / 2).join(" "), g.slice(g.length / 2).join(" ")].join("  ");
 };
 
+// ---------------------------------------------------------- navigation
+
+const STEPS = ["identity", "connect", "call"];
+let screen = "welcome";
+
+function go(name) {
+  if (name === "connect" && !identity) name = "identity";
+  if (name === "call" && !session) name = identity ? "connect" : "identity";
+  screen = name;
+  for (const el of document.querySelectorAll("[data-screen]")) el.hidden = el.dataset.screen !== name;
+  document.body.classList.toggle("wide", name === "call");
+  renderStepper();
+  window.scrollTo(0, 0);
+}
+
+function renderStepper() {
+  const done = { identity: !!identity, connect: !!session, call: false };
+  const reachable = { identity: true, connect: !!identity, call: !!session };
+  for (const li of $("stepper").children) {
+    const step = li.dataset.step;
+    li.className = step === screen ? "current" : done[step] ? "done" : "";
+    li.querySelector("button").disabled = !reachable[step] || step === screen;
+  }
+}
+
 function renderIdentity() {
   $("id-summary").hidden = !identity;
   $("id-form").hidden = !!identity;
-  $("card-identity").classList.toggle("done", !!identity);
-  $("card-connect").classList.toggle("locked", !identity);
+  $("btn-to-connect").disabled = !identity;
+  $("btn-start").textContent = identity ? `Continue as ${identity.name?.replace(/\s*<.*>$/, "") || "you"}` : "Get started";
+  renderStepper();
   if (identity) {
     $("id-status").textContent = "Ready";
     $("id-status").className = "pill ok";
@@ -147,6 +175,8 @@ async function setupPeer() {
   }
   $("local").srcObject = localStream;
   $("pip").hidden = false;
+  $("peer-fpr").readOnly = true;
+  $("use-stun").disabled = true;
 
   const iceServers = $("use-stun").checked ? [{ urls: "stun:stun.l.google.com:19302" }] : [];
   pc = new RTCPeerConnection({ iceServers });
@@ -160,23 +190,37 @@ function startSession(dc, peerFpr) {
   dc.binaryType = "arraybuffer";
   dc.onopen = () => {
     session = new CallSession({ dc, peerFpr, identity, video: $("local") });
-    $("card-connect").classList.add("done");
-    $("card-call").scrollIntoView({ behavior: "smooth", block: "start" });
     window.ykchat.session = session;
     session.start();
+    go("call");
+    $("chat-input").focus();
   };
-  dc.onclose = () => { session?.stop("call ended"); };
+  dc.onclose = () => endCall("The call ended");
+}
+
+/** Arrange the code exchange for the chosen role: host sends first, guest pastes first. */
+function showCodes(role) {
+  $("role-pick").hidden = true;
+  $("codes").hidden = false;
+  $("btn-restart").hidden = false;
+  const host = role === "host";
+  if (!host) $("codes-steps").prepend($("step-their-code"));
+  $("my-code-label").textContent = host ? "Send this invite to your peer" : "Send this reply back to them";
+  $("their-code-label").textContent = host ? "Paste their reply" : "Paste the invite they sent you";
+  $("btn-accept").hidden = !host;
+  $("btn-join").hidden = host;
+  $("step-my-code").hidden = !host;
 }
 
 async function hostCall() {
   const peerFpr = await setupPeer();
+  showCodes("host");
   const dc = pc.createDataChannel("ykchat", { ordered: true });
   startSession(dc, peerFpr);
   await pc.setLocalDescription(await pc.createOffer());
   await iceGatheringDone(pc);
   $("my-code").value = await packSignal(pc.localDescription);
-  $("code-help").textContent = "Send this invite to your peer, then paste their reply below.";
-  $("btn-accept").hidden = false;
+  $("code-help").textContent = "They paste it into “Join a call” and send you a reply code.";
 }
 
 async function joinCall() {
@@ -188,13 +232,35 @@ async function joinCall() {
   await pc.setLocalDescription(await pc.createAnswer());
   await iceGatheringDone(pc);
   $("my-code").value = await packSignal(pc.localDescription);
-  $("code-help").textContent = "Send this reply back to the person who invited you.";
+  $("step-my-code").hidden = false;
+  $("btn-join").hidden = true;
+  $("their-code").readOnly = true;
+  $("code-help").textContent = "The call starts as soon as they paste it.";
+  $("connecting").hidden = false;
 }
 
 async function acceptAnswer() {
   const answer = await unpackSignal($("their-code").value);
   if (answer.type !== "answer") throw new Error("that is not a reply code");
   await pc.setRemoteDescription(answer);
+  $("btn-accept").hidden = true;
+  $("connecting").hidden = false;
+}
+
+function endCall(reason) {
+  session?.stop(reason);
+  pc?.close();
+  for (const t of localStream?.getTracks() ?? []) t.stop();
+  $("ended-text").textContent = reason;
+  $("ended").hidden = false;
+  $("btn-hangup").hidden = true;
+  $("chat-input").disabled = true;
+  $("btn-send").disabled = true;
+}
+
+function newCall() {
+  sessionStorage.setItem(RESUME_KEY, "connect");
+  location.reload();
 }
 
 // ------------------------------------------------------------- session
@@ -223,6 +289,8 @@ class CallSession {
     this.lastError = "waiting for peer hello";
     this.rx = Promise.resolve();
     this.rxChunks = [];
+    this.myMsgs = new Map();    // seq -> chat element awaiting our own signature
+    this.theirMsgs = new Map(); // seq -> chat element awaiting the peer's proof
 
     this.canvas = document.createElement("canvas");
     this.canvas.width = CONFIG.width;
@@ -242,6 +310,8 @@ class CallSession {
   stop(reason) {
     if (this.stopped) return;
     this.stopped = true;
+    $("touch-prompt").hidden = true;
+    $("btn-retry").hidden = true;
     this.lastError = reason;
     renderStatus(this);
     clearInterval(this.statusTimer);
@@ -288,6 +358,15 @@ class CallSession {
           $("remote-placeholder").hidden = true;
         })
         .catch(() => {});
+    } else if (type === "C") {
+      if (!this.verifier) throw new Error("chat before hello");
+      const view = new DataView(msg.buffer, msg.byteOffset + 1, 16);
+      const seq = Number(view.getBigUint64(0));
+      const ts = Number(view.getBigUint64(8));
+      const text = fromUtf8(msg.subarray(17));
+      if (text.length > MAX_CHAT) throw new Error("chat message too long");
+      await this.verifier.addChat(seq, ts, text);
+      this.theirMsgs.set(seq, addChatMessage({ mine: false, name: this.peerShortName, ts, text }));
     } else if (type === "J") {
       const m = JSON.parse(fromUtf8(msg.subarray(1)));
       if (m.t === "hello") await this.onHello(m);
@@ -307,6 +386,7 @@ class CallSession {
     this.myRecent.push(hex(await sha256(this.myNonce))); // the peer's first statement acks our nonce
     this.verifier = new PeerVerifier({ binding, sessionId: sid, myRecent: this.myRecent });
     this.peerName = binding.userIds.join(", ");
+    this.peerShortName = binding.userIds[0]?.replace(/\s*<.*>$/, "") || this.peerFpr.slice(-8);
     this.lastError = "waiting for first statement";
     log(`peer identity: ${this.peerName} (${binding.fpr}), WebAuthn credential bound by GPG signature`, "ok");
     log(`session ${hex(sid).slice(0, 16)}`);
@@ -318,11 +398,16 @@ class CallSession {
       const stmt = await this.verifier.check(m.stmt, m.assertion);
       this.lastVerified = Date.now();
       this.lastError = "";
-      log(`peer epoch ${stmt.epoch} verified: ${stmt.seq_to - stmt.seq_from} frames, key touched`, "ok");
+      for (const [seq, el] of this.theirMsgs) {
+        if (seq < stmt.seq_to) { setSeal(el, "ok", "✓ verified by their key"); this.theirMsgs.delete(seq); }
+      }
+      log(`peer epoch ${stmt.epoch} verified: ${stmt.seq_to - stmt.seq_from} items, key touched`, "ok");
     } catch (e) {
       // The chain cannot recover from a rejected statement; keep the root cause visible.
       this.firstError ??= e.message;
       this.lastError = this.firstError;
+      for (const el of this.theirMsgs.values()) setSeal(el, "bad", "✕ not verified");
+      this.theirMsgs.clear();
       log(`peer statement REJECTED: ${e.message}`, "bad");
     }
   }
@@ -338,8 +423,10 @@ class CallSession {
       const blob = await new Promise((r) => this.canvas.toBlob(r, "image/jpeg", 0.7));
       const jpeg = new Uint8Array(await blob.arrayBuffer());
       if (this.dc.bufferedAmount < MAX_BUFFERED) {
+        // Assign seq, queue the leaf and send in one synchronous step so chat
+        // messages sent meanwhile can't reorder the sequence.
         const seq = this.seq++;
-        this.pendingLeaves.push(await frameLeaf(seq, t0, jpeg));
+        this.pendingLeaves.push(frameLeaf(seq, t0, jpeg));
         this.send("F", concat(u64(seq), u64(t0), jpeg));
       }
       if (Date.now() >= epochEnd) {
@@ -368,7 +455,7 @@ class CallSession {
           epoch: this.myEpoch + 1,
           seq_from: item.seqFrom,
           seq_to: item.seqTo,
-          root: hex(await merkleRoot(item.leaves)),
+          root: hex(await merkleRoot(await Promise.all(item.leaves))),
           prev: this.myPrev,
           peer_ack: peerAck,
           t: Date.now(),
@@ -391,10 +478,22 @@ class CallSession {
         this.myRecent.push(h);
         if (this.myRecent.length > ACK_WINDOW) this.myRecent.shift();
         this.sendJson({ t: "stmt", stmt: stmtStr, assertion });
+        for (const [seq, el] of this.myMsgs) {
+          if (seq < item.seqTo) { setSeal(el, "ok", "✓ signed by your key"); this.myMsgs.delete(seq); }
+        }
       }
     } finally {
       this.signing = false;
     }
+  }
+
+  sendChat(text) {
+    if (!this.verifier || this.stopped) throw new Error("not connected");
+    const seq = this.seq++;
+    const ts = Date.now();
+    this.pendingLeaves.push(chatLeaf(seq, ts, text));
+    this.send("C", concat(u64(seq), u64(ts), utf8(text)));
+    this.myMsgs.set(seq, addChatMessage({ mine: true, name: "You", ts, text }));
   }
 
   status() {
@@ -421,6 +520,73 @@ function renderStatus(s) {
   $("status").textContent = text;
   $("status").className = ok ? "status ok" : "status bad";
   $("remote").className = ok ? "" : "unverified";
+  $("key-badge").hidden = !s.verifier;
+  $("key-badge").className = ok ? "badge-key ok" : "badge-key bad";
+  $("key-badge-text").textContent = ok ? `${s.peerShortName}'s YubiKey is present` : "YubiKey not verified";
+}
+
+// ---------------------------------------------------------------- chat
+
+/** Text -> DOM with http(s) links as anchors. Never parses HTML. */
+function linkify(text) {
+  const frag = document.createDocumentFragment();
+  let last = 0;
+  for (const m of text.matchAll(/https?:\/\/[^\s<>"']+/gi)) {
+    let raw = m[0].replace(/[.,;:!?)\]]+$/, "");
+    let url;
+    try { url = new URL(raw); } catch { continue; }
+    if (url.protocol !== "http:" && url.protocol !== "https:") continue;
+    frag.append(text.slice(last, m.index));
+    const a = document.createElement("a");
+    a.href = url.href;
+    a.textContent = raw;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer nofollow";
+    a.title = url.href;
+    frag.append(a);
+    last = m.index + raw.length;
+  }
+  frag.append(text.slice(last));
+  return frag;
+}
+
+function addChatMessage({ mine, name, ts, text }) {
+  $("chat-empty").hidden = true;
+  const el = document.createElement("div");
+  el.className = `msg ${mine ? "mine" : "theirs"}`;
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.append(linkify(text));
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  const seal = document.createElement("span");
+  seal.className = "seal";
+  seal.textContent = mine ? "awaiting your touch" : "awaiting their proof";
+  meta.append(`${name} · ${new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · `, seal);
+  el.append(bubble, meta);
+  const list = $("chat-list");
+  const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+  list.append(el);
+  if (mine || atBottom) list.scrollTop = list.scrollHeight;
+  return el;
+}
+
+function setSeal(el, cls, text) {
+  const seal = el.querySelector(".seal");
+  seal.className = `seal ${cls}`;
+  seal.textContent = text;
+}
+
+function sendChat() {
+  const input = $("chat-input");
+  const text = input.value.trim();
+  if (!text) return;
+  if (text.length > MAX_CHAT) throw new Error(`messages are limited to ${MAX_CHAT} characters`);
+  if (!session) throw new Error("not connected");
+  session.sendChat(text);
+  input.value = "";
+  input.style.height = "";
+  input.focus();
 }
 
 // ------------------------------------------------------------------ UI
@@ -504,7 +670,39 @@ bind("btn-reset-id", async () => {
 bind("btn-host", hostCall);
 bind("btn-join", joinCall);
 bind("btn-accept", acceptAnswer);
+bind("role-join", async () => {
+  const v = normFpr($("peer-fpr").value);
+  if (!/^[0-9A-F]{40}$|^[0-9A-F]{64}$/.test(v)) throw new Error("enter the peer's full GPG fingerprint first");
+  showCodes("guest");
+  $("their-code").focus();
+});
+bind("btn-start", async () => go(identity ? "connect" : "identity"));
+bind("btn-restart", async () => newCall());
+bind("btn-new-call", async () => newCall());
+bind("btn-hangup", async () => endCall("You hung up"));
+bind("btn-send", async () => sendChat());
+for (const el of document.querySelectorAll("[data-go]")) {
+  el.addEventListener("click", () => { if (!el.disabled) go(el.dataset.go); });
+}
+$("chat-input").addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) {
+    ev.preventDefault();
+    try { sendChat(); } catch (e) { toast(e.message, true); }
+  }
+});
+$("chat-input").addEventListener("input", () => {
+  const el = $("chat-input");
+  el.style.height = "";
+  el.style.height = Math.min(el.scrollHeight + 2, 120) + "px";
+});
+window.addEventListener("beforeunload", (ev) => {
+  if (session && !session.stopped) ev.preventDefault();
+});
+
 renderIdentity();
+const resume = sessionStorage.getItem(RESUME_KEY);
+sessionStorage.removeItem(RESUME_KEY);
+go(resume && identity ? resume : "welcome");
 if (!window.isSecureContext) log("not a secure context: serve over https or http://localhost", "bad");
 log(`epoch ${CONFIG.epochSec}s, grace ${CONFIG.graceSec}s, ${CONFIG.fps} fps`);
 $("call-config").textContent = `Proof every ${CONFIG.epochSec}s · ${CONFIG.graceSec}s grace · ${CONFIG.fps} fps`;

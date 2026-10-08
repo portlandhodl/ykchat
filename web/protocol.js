@@ -85,7 +85,9 @@ export function u64(n) {
   return b;
 }
 
+// Frames and chat messages share one sequence space; the first byte separates the two leaf types.
 export const frameLeaf = (seq, tsMs, jpeg) => sha256(Uint8Array.of(0), u64(seq), u64(tsMs), jpeg);
+export const chatLeaf = (seq, tsMs, text) => sha256(Uint8Array.of(2), u64(seq), u64(tsMs), utf8(text));
 
 /** RFC 6962-style domain separation; an odd node is promoted unchanged. */
 export async function merkleRoot(leaves) {
@@ -226,6 +228,10 @@ export class PeerVerifier {
     this.leaves.set(seq, await frameLeaf(seq, tsMs, jpeg));
   }
 
+  async addChat(seq, tsMs, text) {
+    this.leaves.set(seq, await chatLeaf(seq, tsMs, text));
+  }
+
   /** Throws with a reason on failure; on success advances the chain. */
   async check(stmtStr, assertion) {
     const body = utf8(stmtStr);
@@ -251,7 +257,7 @@ export class PeerVerifier {
       if (!this.leaves.has(s)) throw new Error(`missing frame ${s}`);
       leaves.push(this.leaves.get(s));
     }
-    if (hex(await merkleRoot(leaves)) !== stmt.root) throw new Error("merkle root does not match received video");
+    if (hex(await merkleRoot(leaves)) !== stmt.root) throw new Error("merkle root does not match received video/chat");
 
     for (let s = stmt.seq_from; s < stmt.seq_to; s++) this.leaves.delete(s);
     this.epoch = stmt.epoch;

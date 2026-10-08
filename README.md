@@ -35,6 +35,8 @@ Options via URL: `?epoch=10&grace=15&fps=12`.
    creates an invite, the other pastes it and sends back the reply.
 3. Touch the key each epoch. The status bar turns red if the peer's proofs
    stop, arrive late, are signed by another key, or don't match the video.
+   The chat sidebar's messages share the video's sequence numbers, so each
+   message is marked "verified" once a proof covering it checks out.
 
 Audio is carried by WebRTC but is not covered by the proofs.
 

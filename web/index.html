@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ykchat</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233a57d6'/%3E%3Crect x='5' y='7' width='22' height='15' rx='2.5' fill='none' stroke='white' stroke-width='2'/%3E%3Cpath d='M13 26h6' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3Crect x='9.5' y='12' width='10' height='5' rx='1.2' fill='white'/%3E%3Crect x='19.5' y='13.2' width='3' height='2.6' rx='.5' fill='white'/%3E%3Ccircle cx='12.4' cy='14.5' r='1.4' fill='%23f5b300'/%3E%3C/svg%3E">
 <script>
   // Apply the saved theme before first paint to avoid a flash.
   document.documentElement.dataset.theme = localStorage.getItem("ykchat.theme") || "auto";
@@ -14,6 +15,7 @@
     --text: #15181d; --muted: #646d78; --faint: #8a929c;
     --accent: #3a57d6; --accent-hover: #3049bd; --accent-text: #ffffff; --accent-soft: #eaeefc;
     --ok: #1d7f46; --ok-soft: #e6f4ec; --bad: #c4312d; --bad-soft: #fcebea; --warn: #8a5d00; --warn-soft: #fdf3dc;
+    --stage: #0a0c10;
     --shadow: 0 1px 2px rgb(16 24 40 / .05);
     color-scheme: light;
   }
@@ -35,123 +37,147 @@
       color-scheme: dark;
     }
   }
-
-  /* Layout tokens: one column, every card body starts at the same x as its title. */
   :root {
-    --page: 820px; --pad: 28px; --badge: 28px; --gutter: 16px; --indent: calc(var(--badge) + var(--gutter));
+    --page: 760px; --page-wide: 1240px; --pad: 28px;
     --radius: 12px; --radius-sm: 8px; --control-h: 40px;
     --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
   }
 
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
+  html, body { min-height: 100%; }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 14px/1.55 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    -webkit-font-smoothing: antialiased;
+    margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; min-height: 100vh;
+    font: 14px/1.55 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased;
   }
-  h1, h2, p { margin: 0; }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
+  h1, h2, h3, p { margin: 0; }
+  a { color: var(--accent); }
   code { font-family: var(--mono); font-size: .86em; background: var(--surface-2); border: 1px solid var(--border);
          border-radius: 4px; padding: .05em .3em; }
 
-  /* ---------- header */
-  header { border-bottom: 1px solid var(--border); background: var(--surface); }
-  .container { max-width: var(--page); margin: 0 auto; padding: 0 20px; }
+  /* ---------- top bar + stepper */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); flex: none; }
+  .container { max-width: var(--page); margin: 0 auto; padding: 0 20px; width: 100%; }
+  body.wide .container { max-width: var(--page-wide); }
   .bar { height: 60px; display: flex; align-items: center; gap: 12px; }
-  .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--accent-text);
-          display: grid; place-items: center; flex: none; }
+  .logo-tile { width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: #fff; display: grid; place-items: center; flex: none; }
   .brand { font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
-  .tagline { color: var(--muted); font-size: 13px; }
   .bar .spacer { flex: 1; }
 
-  main.container { padding-top: 28px; padding-bottom: 48px; display: grid; gap: 16px; }
+  .stepper { display: flex; align-items: center; gap: 8px; list-style: none; margin: 0; padding: 0; }
+  .stepper li { display: flex; align-items: center; gap: 8px; }
+  .stepper li + li::before { content: ""; width: 28px; height: 1px; background: var(--border-strong); }
+  .stepper button { height: 32px; padding: 0 10px 0 6px; border: none; background: none; gap: 8px; color: var(--faint); font-size: 13px; }
+  .stepper button:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+  .stepper button:disabled { cursor: default; opacity: 1; }
+  .stepper .num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11.5px;
+                  border: 1px solid var(--border-strong); }
+  .stepper .current button { color: var(--text); }
+  .stepper .current .num { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .stepper .done button { color: var(--muted); }
+  .stepper .done .num { font-size: 0; border-color: var(--ok); background: var(--ok) center / 12px no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+  @media (max-width: 720px) { .stepper .label { display: none; } .stepper li + li::before { width: 12px; } }
+
+  main { flex: 1; padding: 32px 0 48px; }
+  .screen { animation: enter .25s ease-out; }
+  @keyframes enter { from { opacity: 0; transform: translateY(6px); } }
+
+  /* ---------- welcome */
+  .hero { text-align: center; padding: 24px 0 8px; }
+  .hero-logo { display: block; width: 132px; height: 132px; margin: 0 auto 24px; color: var(--accent); }
+  .hero h1 { font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
+  .hero p { margin: 10px auto 0; max-width: 520px; color: var(--muted); font-size: 15px; }
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 36px; }
+  @media (max-width: 640px) { .features { grid-template-columns: 1fr; } }
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  .feature .icon { width: 36px; height: 36px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+  .feature h3 { font-size: 14px; margin-top: 12px; }
+  .feature p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .hero-actions { display: flex; justify-content: center; gap: 8px; margin-top: 32px; }
 
   /* ---------- cards */
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-          box-shadow: var(--shadow); padding: 22px var(--pad) var(--pad); transition: opacity .2s; }
-  .card.locked { opacity: .5; pointer-events: none; }
-  .card-head { display: grid; grid-template-columns: var(--badge) 1fr auto; column-gap: var(--gutter); align-items: center; }
-  .card-head .step { grid-row: span 2; align-self: start; margin-top: 1px; }
-  .card-head h2 { font-size: 15px; font-weight: 650; line-height: 30px; }
-  .card-head p { grid-column: 2; color: var(--muted); font-size: 13px; }
-  .card-head .aside { grid-column: 3; grid-row: 1; }
-  .card-body { margin-left: var(--indent); margin-top: 20px; }
-  @media (max-width: 640px) { :root { --pad: 18px; } .card-body { margin-left: 0; } }
-
-  .step { width: var(--badge); height: var(--badge); border-radius: 50%; display: grid; place-items: center;
-          font-weight: 650; font-size: 13px; background: var(--accent-soft); color: var(--accent); }
-  .card.done .step { font-size: 0; background: var(--ok) center / 14px no-repeat
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .card-section { padding: 24px var(--pad); }
+  .card-section + .card-section { border-top: 1px solid var(--border); }
+  .screen-title { margin-bottom: 20px; }
+  .screen-title .eyebrow { font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: .06em; }
+  .screen-title h2 { font-size: 22px; font-weight: 700; letter-spacing: -.015em; margin-top: 4px; }
+  .screen-title p { color: var(--muted); margin-top: 4px; }
+  .card-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px var(--pad);
+               border-top: 1px solid var(--border); background: var(--surface-2); border-radius: 0 0 var(--radius) var(--radius); }
+  .card-foot > .ghost:first-child { margin-left: -16px; }
+  .card-foot > .ghost:last-child { margin-right: -16px; }
+  @media (max-width: 640px) { :root { --pad: 18px; } }
 
   /* ---------- fields */
-  .field + .field { margin-top: 18px; }
-  .field-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-                 min-height: 26px; margin-bottom: 6px; }
+  .field + .field { margin-top: 20px; }
+  .field-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 26px; margin-bottom: 6px; }
   .field-label label { font-weight: 600; font-size: 13px; }
-  .field-label .hint { color: var(--muted); font-weight: 400; font-size: 12.5px; }
+  .field-label .hint { color: var(--muted); font-size: 12.5px; }
   .hint-below { color: var(--muted); font-size: 12.5px; margin-top: 6px; }
-
+  .hint-below:empty { display: none; }
   input[type=text], textarea {
-    display: block; width: 100%; color: var(--text); background: var(--surface);
-    border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-    font-family: var(--mono); transition: border-color .15s, box-shadow .15s;
+    display: block; width: 100%; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm); font-family: var(--mono); transition: border-color .15s, box-shadow .15s;
   }
   input[type=text] { height: var(--control-h); padding: 0 12px; font-size: 14px; letter-spacing: .02em; }
   textarea { height: 104px; padding: 10px 12px; font-size: 12px; line-height: 1.5; resize: vertical; word-break: break-all; }
   textarea[readonly] { background: var(--surface-2); }
   input::placeholder, textarea::placeholder { color: var(--faint); }
-  input[type=text]:focus, textarea:focus { outline: none; border-color: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  input[type=text]:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
   input.valid { border-color: var(--ok); }
   input.invalid { border-color: var(--bad); }
-
-  .switch { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; margin-top: 18px;
-            font-size: 13px; color: var(--muted); cursor: pointer; }
+  .switch { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; margin-top: 18px; font-size: 13px; color: var(--muted); cursor: pointer; }
   .switch input { margin: 2px 0 0; width: 16px; height: 16px; accent-color: var(--accent); }
   .switch strong { color: var(--text); font-weight: 600; }
 
   /* ---------- buttons */
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
-  .actions.split { justify-content: space-between; align-items: center; }
+  .actions:not(:has(> :not([hidden]))) { display: none; }
   button {
-    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    height: var(--control-h); padding: 0 16px; font: inherit; font-weight: 600; font-size: 13.5px;
-    color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-    cursor: pointer; white-space: nowrap; transition: background-color .15s, border-color .15s, color .15s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: var(--control-h); padding: 0 16px;
+    font: inherit; font-weight: 600; font-size: 13.5px; color: var(--text); background: var(--surface);
+    border: 1px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap;
+    transition: background-color .15s, border-color .15s, color .15s, opacity .15s;
   }
   button:hover { background: var(--surface-2); }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
   button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-  button.link { height: auto; padding: 0; border: none; background: none; color: var(--accent); font-weight: 600; font-size: 12.5px; }
+  button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
+  button.danger:hover { background: var(--bad); filter: brightness(1.08); }
+  button.ghost { background: none; border-color: transparent; color: var(--muted); }
+  button.ghost:hover { color: var(--text); background: var(--border); }
+  button.link { height: auto; padding: 0; border: none; background: none; color: var(--accent); font-size: 12.5px; }
   button.link:hover { background: none; text-decoration: underline; }
   button.icon { width: 36px; height: 36px; padding: 0; font-size: 16px; }
+  button.lg { height: 46px; padding: 0 24px; font-size: 14.5px; }
 
-  /* ---------- identity summary */
-  .pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px;
-          font-size: 12px; font-weight: 600; background: var(--surface-2); color: var(--muted); }
+  /* ---------- identity */
+  .pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 999px;
+          font-size: 11.5px; font-weight: 600; background: var(--surface-2); color: var(--muted); }
   .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
   .pill.ok { background: var(--ok-soft); color: var(--ok); }
-  .identity { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 16px;
-              padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
-  .identity .who { font-weight: 600; }
-  .identity .fpr { grid-column: 1; font-family: var(--mono); font-size: 13px; color: var(--muted); letter-spacing: .02em; white-space: pre; }
-  .identity button { grid-column: 2; grid-row: 1 / span 2; }
+  .identity { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 2px 14px; padding: 16px;
+              border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+  .identity .avatar { grid-row: span 2; width: 44px; height: 44px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
+                      display: grid; place-items: center; }
+  .identity .who { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .identity .fpr { grid-column: 2; font-family: var(--mono); font-size: 12.5px; color: var(--muted); white-space: pre; overflow-x: auto; }
+  .identity button { grid-column: 3; grid-row: 1 / span 2; }
 
-  /* ---------- enrollment sub-steps */
-  .substeps { list-style: none; margin: 24px 0 0; padding: 20px 0 0; border-top: 1px solid var(--border); counter-reset: s; }
-  .substeps > li { counter-increment: s; display: grid; grid-template-columns: 22px 1fr; column-gap: 12px; }
-  .substeps > li + li { margin-top: 18px; }
-  .substeps > li::before { content: counter(s); width: 22px; height: 22px; margin-top: 2px; border-radius: 50%;
-    display: grid; place-items: center; background: var(--surface-2); border: 1px solid var(--border);
-    color: var(--muted); font-size: 11px; font-weight: 700; }
+  .substeps { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+  .substeps > li { counter-increment: s; display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 14px; }
+  .substeps > li + li { margin-top: 24px; }
+  .substeps > li::before { content: counter(s); width: 24px; height: 24px; margin-top: 1px; border-radius: 50%;
+    display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 11.5px; font-weight: 700; }
+  .substeps > li > * { grid-column: 2; }
 
-  /* ---------- help */
   details.help { margin-top: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-  details.help > summary { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px;
-    cursor: pointer; list-style: none; font-size: 13px; font-weight: 600; color: var(--muted); }
+  details.help > summary { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; cursor: pointer; list-style: none;
+                           font-size: 13px; font-weight: 600; color: var(--muted); }
   details.help > summary::-webkit-details-marker { display: none; }
   details.help > summary::before { content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0;
     transform: rotate(-45deg); transition: transform .15s; margin-right: 2px; }
@@ -166,16 +192,32 @@
   .panel ol { margin: 0; padding-left: 18px; }
   .panel li + li { margin-top: 10px; }
   .help-body h4 { margin: 16px 0 8px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .cmd { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 0;
-         height: 38px; padding: 0 6px 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-         background: var(--surface-2); font-family: var(--mono); font-size: 12.5px; overflow-x: auto; white-space: nowrap; }
+  .cmd { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 0; height: 38px; padding: 0 6px 0 12px;
+         border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); font-family: var(--mono);
+         font-size: 12.5px; overflow-x: auto; white-space: nowrap; }
   .cmd button { height: 28px; padding: 0 10px; font-size: 12px; flex: none; }
   .example { margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2);
              font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--muted); white-space: pre; overflow-x: auto; }
   .example mark { background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 1px 3px; }
   .note { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--muted); font-size: 12.5px; }
 
+  /* ---------- connect: role choice */
+  .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .roles { grid-template-columns: 1fr; } }
+  .role { height: auto; display: grid; grid-template-columns: auto 1fr; justify-content: start; align-items: start; gap: 2px 14px;
+          padding: 16px; text-align: left; white-space: normal; font-weight: 400; }
+  .role .icon { grid-row: span 2; width: 36px; height: 36px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+  .role strong { font-size: 14px; }
+  .role .desc { color: var(--muted); font-size: 12.5px; }
+  .role:hover { border-color: var(--accent); background: var(--surface); }
+  .waiting { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
+  .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border-strong); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   /* ---------- call */
+  .call { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+  @media (max-width: 980px) { .call { grid-template-columns: 1fr; } }
+  .video-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   .status { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border-radius: var(--radius-sm);
             font-family: var(--mono); font-size: 12.5px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
             transition: background-color .25s, color .25s; }
@@ -186,32 +228,66 @@
   .status.idle { background: var(--surface-2); color: var(--muted); }
   @keyframes pulse { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent); } to { box-shadow: 0 0 0 7px transparent; } }
 
-  .stage { position: relative; margin-top: 12px; border-radius: var(--radius-sm); overflow: hidden; background: #0a0c10; }
-  #remote { display: block; width: 100%; aspect-ratio: 4 / 3;
-            outline: 3px solid transparent; outline-offset: -3px; transition: outline-color .25s; }
+  .stage { position: relative; border-radius: var(--radius); overflow: hidden; background: var(--stage); }
+  #remote { display: block; width: 100%; aspect-ratio: 4 / 3; outline: 3px solid transparent; outline-offset: -3px; transition: outline-color .25s; }
   #remote.unverified { outline-color: var(--bad); }
-  .placeholder { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px;
-                 color: #7d8590; font-size: 13px; pointer-events: none; }
-  .placeholder svg { opacity: .6; }
-  .pip { position: absolute; right: 12px; bottom: 12px; width: 26%; border-radius: 6px; overflow: hidden;
+  .placeholder { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 16px;
+                 color: #8b95a7; font-size: 13.5px; pointer-events: none; text-align: center; }
+  .placeholder svg { width: 120px; height: 120px; color: #2f3846; }
+  .placeholder .disk { animation: glow 1.2s infinite alternate; }
+  .badge-key { position: absolute; top: 12px; left: 12px; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px 0 8px;
+               border-radius: 999px; background: rgb(10 12 16 / .65); backdrop-filter: blur(6px); color: #fff; font-size: 12.5px; font-weight: 600; }
+  .badge-key svg { width: 22px; height: 22px; color: #9aa5b4; }
+  .badge-key.ok svg { color: #46c27a; } .badge-key.bad svg { color: #f0625d; }
+  .pip { position: absolute; right: 12px; bottom: 12px; width: 24%; border-radius: 8px; overflow: hidden;
          border: 1px solid rgb(255 255 255 / .25); box-shadow: 0 6px 20px rgb(0 0 0 / .45); background: #111; }
   #local { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; transform: scaleX(-1); }
-  .overlay-left { position: absolute; left: 12px; bottom: 12px; }
-  .touch { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 6px;
-           background: rgb(10 12 16 / .78); color: #fff; font-size: 13px; font-weight: 600; backdrop-filter: blur(4px); }
-  .touch::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #e2b13f; animation: blink .8s infinite alternate; }
-  @keyframes blink { to { opacity: .25; } }
-  .call-foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--muted); font-size: 12.5px; }
+  .pip-label { position: absolute; left: 6px; bottom: 6px; font-size: 11px; font-weight: 600; color: #fff; background: rgb(0 0 0 / .5); padding: 1px 6px; border-radius: 4px; }
+  .touch { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 10px;
+           height: 44px; padding: 0 16px 0 10px; border-radius: 999px; background: rgb(10 12 16 / .8); backdrop-filter: blur(6px);
+           color: #fff; font-size: 13.5px; font-weight: 600; }
+  .touch svg { width: 30px; height: 30px; color: #c9d1d9; }
+  .touch .disk { animation: glow .7s infinite alternate; }
+  @keyframes glow { to { opacity: .3; } }
+  #btn-retry { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); }
+  .controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12.5px; }
+
+  /* chat */
+  .chat { display: flex; flex-direction: column; height: min(640px, calc(100vh - 140px)); min-height: 420px; position: sticky; top: 16px; }
+  @media (max-width: 980px) { .chat { position: static; height: 480px; } }
+  .chat-head { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .chat-head h3 { font-size: 14px; }
+  .chat-head p { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  #chat-list { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .chat-empty { margin: auto; max-width: 220px; color: var(--faint); font-size: 13px; text-align: center; }
+  .msg { max-width: 88%; display: flex; flex-direction: column; gap: 4px; }
+  .msg.mine { align-self: flex-end; align-items: flex-end; }
+  .bubble { padding: 8px 12px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border);
+            white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13.5px; }
+  .msg.mine .bubble { background: var(--accent); border-color: var(--accent); color: var(--accent-text); border-bottom-right-radius: 4px; }
+  .msg.theirs .bubble { border-bottom-left-radius: 4px; }
+  .bubble a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .msg.mine .bubble a { color: inherit; }
+  .meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--faint); }
+  .seal { font-weight: 600; }
+  .seal.ok { color: var(--ok); }
+  .seal.bad { color: var(--bad); }
+  .composer { display: flex; align-items: flex-end; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
+  .composer textarea { height: 40px; resize: none; font-family: inherit; font-size: 13.5px; word-break: normal; padding: 9px 12px; }
+  .composer button { flex: none; }
+  .chat-note { padding: 0 12px 10px; color: var(--faint); font-size: 11.5px; }
+
+  .ended { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 10px 10px 16px;
+           border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); font-weight: 600; }
 
   /* ---------- log */
-  details.log > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; list-style: none;
-                          font-size: 13px; font-weight: 600; color: var(--muted); }
+  details.log { margin-top: 24px; }
+  details.log > summary { cursor: pointer; list-style: none; font-size: 12.5px; font-weight: 600; color: var(--faint); }
   details.log > summary::-webkit-details-marker { display: none; }
-  details.log > summary::after { content: "Show"; font-weight: 600; color: var(--accent); font-size: 12.5px; }
-  details.log[open] > summary::after { content: "Hide"; }
-  .log-card { padding: 16px var(--pad); }
-  #log { margin-top: 12px; max-height: 240px; overflow: auto; font-family: var(--mono); font-size: 12px; }
-  #log > div { padding: 3px 0; border-bottom: 1px solid var(--border); }
+  details.log > summary:hover { color: var(--muted); }
+  #log { margin-top: 8px; max-height: 220px; overflow: auto; font-family: var(--mono); font-size: 12px; padding: 8px 12px;
+         border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+  #log > div { padding: 2px 0; }
   #log .ok { color: var(--ok); } #log .bad { color: var(--bad); } #log .warn { color: var(--warn); }
 
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
@@ -222,193 +298,282 @@
 </style>
 </head>
 <body>
+<!-- Logo: a security key inside a video screen. Drawn for ykchat; not Yubico's trademark. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 64 64">
+    <rect x="6" y="10" width="52" height="36" rx="6" fill="none" stroke="currentColor" stroke-width="4"/>
+    <path d="M24 55h16M32 46v9" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+    <rect x="15" y="21" width="24" height="14" rx="3.5" fill="currentColor"/>
+    <rect x="39" y="24.5" width="8" height="7" rx="1.5" fill="currentColor"/>
+    <circle class="disk" cx="23" cy="28" r="4" fill="#f5b300"/>
+  </symbol>
+  <symbol id="key" viewBox="0 0 32 32">
+    <rect x="3" y="10" width="20" height="12" rx="3" fill="currentColor"/>
+    <rect x="23" y="13" width="6" height="6" rx="1.2" fill="currentColor"/>
+    <circle class="disk" cx="10" cy="16" r="3.4" fill="#f5b300"/>
+  </symbol>
+</svg>
+
 <header>
   <div class="container bar">
-    <div class="logo" aria-hidden="true">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3M16 7l3 3M18 5l2 2"/></svg>
-    </div>
-    <div>
-      <div class="brand">ykchat</div>
-      <div class="tagline">Peer-to-peer video with continuous YubiKey presence proofs</div>
-    </div>
+    <div class="logo-tile"><svg width="22" height="22"><use href="#logo"/></svg></div>
+    <div class="brand">ykchat</div>
     <div class="spacer"></div>
-    <button id="btn-theme" class="icon" aria-label="Toggle theme"></button>
+    <ol class="stepper" id="stepper">
+      <li data-step="identity"><button data-go="identity"><span class="num">1</span><span class="label">Identity</span></button></li>
+      <li data-step="connect"><button data-go="connect"><span class="num">2</span><span class="label">Connect</span></button></li>
+      <li data-step="call"><button data-go="call"><span class="num">3</span><span class="label">Call</span></button></li>
+    </ol>
+    <div class="spacer"></div>
+    <button id="btn-theme" class="icon ghost" aria-label="Toggle theme"></button>
   </div>
 </header>
 
-<main class="container">
-  <!-- Step 1 -->
-  <section class="card" id="card-identity">
-    <div class="card-head">
-      <div class="step">1</div>
-      <h2>Your identity</h2>
-      <p>One-time setup: your GPG key vouches for your YubiKey.</p>
+<main>
+  <!-- ============ Welcome -->
+  <section class="screen container" data-screen="welcome">
+    <div class="hero">
+      <svg class="hero-logo"><use href="#logo"/></svg>
+      <h1>Know their key is really there.</h1>
+      <p>Peer-to-peer video where each person's YubiKey keeps proving it's present, tied to their GPG identity, for the whole call.</p>
     </div>
+    <div class="features">
+      <div class="feature">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3M16 7l3 3M18 5l2 2"/></svg></div>
+        <h3>Bound to your GPG key</h3>
+        <p>Your GPG key signs once to vouch for your YubiKey. Peers check it against your fingerprint.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg width="24" height="24"><use href="#key"/></svg></div>
+        <h3>Touch to prove presence</h3>
+        <p>Every few seconds your key signs a commitment to the exact video and chat you sent.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        <h3>Direct, no server</h3>
+        <p>Browsers connect to each other directly. You swap two codes over any channel.</p>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <button id="btn-start" class="primary lg">Get started</button>
+    </div>
+  </section>
 
-    <div class="card-body">
-      <div id="id-summary" class="identity" hidden>
-        <div class="who"><span id="id-status" class="pill">No identity yet</span>&nbsp; <span id="id-who"></span></div>
-        <div id="id-fpr" class="fpr"></div>
-        <button id="btn-reset-id">Use a different key</button>
+  <!-- ============ Identity -->
+  <section class="screen container" data-screen="identity" hidden>
+    <div class="screen-title">
+      <div class="eyebrow">Step 1 of 3</div>
+      <h2>Your identity</h2>
+      <p>One-time setup on this browser: your GPG key vouches for your YubiKey.</p>
+    </div>
+    <div class="card">
+      <div class="card-section" id="id-summary" hidden>
+        <div class="identity">
+          <div class="avatar"><svg width="26" height="26"><use href="#key"/></svg></div>
+          <div class="who"><span id="id-who"></span><span id="id-status" class="pill">No identity yet</span></div>
+          <div id="id-fpr" class="fpr"></div>
+          <button id="btn-reset-id">Use a different key</button>
+        </div>
       </div>
 
       <div id="id-form">
-        <div class="field">
-          <div class="field-label"><label for="fpr">GPG fingerprint</label><span class="hint">40 hex characters, spaces are fine</span></div>
-          <input id="fpr" type="text" placeholder="e.g. 4853 B8A6 AC40 E551 3372  3A1A 6554 2D79 E5A6 7972" autocomplete="off" spellcheck="false">
-
-          <details class="help" id="fpr-help">
-            <summary>How do I find my GPG fingerprint?</summary>
-            <div class="help-body">
-              <div class="tabs" role="tablist">
-                <button class="tab" role="tab" data-os="linux">Linux</button>
-                <button class="tab" role="tab" data-os="mac">macOS</button>
-                <button class="tab" role="tab" data-os="win">Windows</button>
-              </div>
-
-              <div class="panel" data-os="linux">
-                <ol>
-                  <li>Open a terminal and run:
-                    <div class="cmd"><span>gpg --list-secret-keys --fingerprint</span></div></li>
-                  <li>Copy the 40-character line under <code>sec</code> (your primary key), not the <code>ssb</code> subkeys.</li>
-                </ol>
-              </div>
-
-              <div class="panel" data-os="mac">
-                <ol>
-                  <li><strong>GPG Suite:</strong> open <em>GPG Keychain</em>, double-click your key and copy the <em>Fingerprint</em>.</li>
-                  <li><strong>Homebrew</strong> (<code>brew install gnupg pinentry-mac</code>): in Terminal run
-                    <div class="cmd"><span>gpg --list-secret-keys --fingerprint</span></div>
-                    and copy the 40-character line under <code>sec</code>.</li>
-                </ol>
-              </div>
-
-              <div class="panel" data-os="win">
-                <ol>
-                  <li><strong>Kleopatra</strong> (part of <a href="https://gpg4win.org" target="_blank" rel="noopener">Gpg4win</a>): select your key under <em>Certificates</em> and copy the fingerprint from the <em>Details</em> pane.</li>
-                  <li><strong>PowerShell:</strong>
-                    <div class="cmd"><span>gpg --list-secret-keys --fingerprint</span></div>
-                    then copy the 40-character line under <code>sec</code>. Use PowerShell, not <code>cmd.exe</code>, for the signing step too.</li>
-                </ol>
-              </div>
-
-              <h4>Example output</h4>
-              <div class="example">sec>  ed25519 2025-03-14 [SC]
+        <div class="card-section">
+          <ol class="substeps">
+            <li>
+              <div class="field">
+                <div class="field-label"><label for="fpr">Your GPG fingerprint</label><span class="hint">40 hex characters, spaces are fine</span></div>
+                <input id="fpr" type="text" placeholder="e.g. 4853 B8A6 AC40 E551 3372  3A1A 6554 2D79 E5A6 7972" autocomplete="off" spellcheck="false">
+                <details class="help" id="fpr-help">
+                  <summary>How do I find my GPG fingerprint?</summary>
+                  <div class="help-body">
+                    <div class="tabs" role="tablist">
+                      <button class="tab" role="tab" data-os="linux">Linux</button>
+                      <button class="tab" role="tab" data-os="mac">macOS</button>
+                      <button class="tab" role="tab" data-os="win">Windows</button>
+                    </div>
+                    <div class="panel" data-os="linux">
+                      <ol>
+                        <li>Open a terminal and run:
+                          <div class="cmd"><span>gpg --list-secret-keys --fingerprint</span></div></li>
+                        <li>Copy the 40-character line under <code>sec</code> (your primary key), not the <code>ssb</code> subkeys.</li>
+                      </ol>
+                    </div>
+                    <div class="panel" data-os="mac">
+                      <ol>
+                        <li><strong>GPG Suite:</strong> open <em>GPG Keychain</em>, double-click your key and copy the <em>Fingerprint</em>.</li>
+                        <li><strong>Homebrew</strong> (<code>brew install gnupg pinentry-mac</code>): in Terminal run
+                          <div class="cmd"><span>gpg --list-secret-keys --fingerprint</span></div>
+                          and copy the 40-character line under <code>sec</code>.</li>
+                      </ol>
+                    </div>
+                    <div class="panel" data-os="win">
+                      <ol>
+                        <li><strong>Kleopatra</strong> (part of <a href="https://gpg4win.org" target="_blank" rel="noopener">Gpg4win</a>): select your key under <em>Certificates</em> and copy the fingerprint from the <em>Details</em> pane.</li>
+                        <li><strong>PowerShell:</strong>
+                          <div class="cmd"><span>gpg --list-secret-keys --fingerprint</span></div>
+                          then copy the 40-character line under <code>sec</code>. Use PowerShell, not <code>cmd.exe</code>, for the signing step too.</li>
+                      </ol>
+                    </div>
+                    <h4>Example output</h4>
+                    <div class="example">sec>  ed25519 2025-03-14 [SC]
       <mark>4853 B8A6 AC40 E551 3372  3A1A 6554 2D79 E5A6 7972</mark>
       Card serial no. = 0006 12345678
 uid           [ultimate] Alice Example &lt;alice@example.com&gt;
 ssb>  cv25519 2025-03-14 [E]</div>
-              <p class="note">Keys on a YubiKey show as <code>sec&gt;</code> with a card serial. If nothing is listed, import your public key
-                (<code>gpg --import mykey.asc</code>) and run <code>gpg --card-status</code> once so GnuPG links the card.</p>
-            </div>
-          </details>
+                    <p class="note">Keys on a YubiKey show as <code>sec&gt;</code> with a card serial. If nothing is listed, import your public key
+                      (<code>gpg --import mykey.asc</code>) and run <code>gpg --card-status</code> once so GnuPG links the card.</p>
+                  </div>
+                </details>
+              </div>
+              <div class="actions">
+                <button id="btn-create-cred" class="primary">Create YubiKey credential</button>
+              </div>
+            </li>
+          </ol>
         </div>
 
-        <div class="actions">
-          <button id="btn-create-cred" class="primary">Create YubiKey credential</button>
+        <div class="card-section" id="enroll-step2" hidden>
+          <ol class="substeps" style="counter-reset: s 1">
+            <li>
+              <div class="field">
+                <div class="field-label"><label for="sign-cmd">Run these two commands in a terminal</label><button class="link" data-copy="sign-cmd">Copy</button></div>
+                <textarea id="sign-cmd" readonly spellcheck="false"></textarea>
+              </div>
+            </li>
+            <li>
+              <div class="field">
+                <div class="field-label"><label for="binding-asc">Paste the <code>gpg --clearsign</code> output</label></div>
+                <textarea id="binding-asc" spellcheck="false" placeholder="-----BEGIN PGP SIGNED MESSAGE-----"></textarea>
+              </div>
+              <div class="field">
+                <div class="field-label"><label for="gpg-pub">Paste the <code>gpg --armor --export</code> output</label></div>
+                <textarea id="gpg-pub" spellcheck="false" placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----"></textarea>
+              </div>
+              <div class="actions">
+                <button id="btn-save-id" class="primary">Verify &amp; save identity</button>
+              </div>
+            </li>
+          </ol>
         </div>
+      </div>
 
-        <ol id="enroll-step2" class="substeps" hidden>
-          <li>
+      <div class="card-foot">
+        <button class="ghost" data-go="welcome">← Back</button>
+        <button id="btn-to-connect" class="primary" data-go="connect" disabled>Continue</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Connect -->
+  <section class="screen container" data-screen="connect" hidden>
+    <div class="screen-title">
+      <div class="eyebrow">Step 2 of 3</div>
+      <h2>Connect to your peer</h2>
+      <p>No server is involved: you swap two codes over any chat, email or text.</p>
+    </div>
+    <div class="card">
+      <div class="card-section">
+        <div class="field">
+          <div class="field-label"><label for="peer-fpr">Peer's GPG fingerprint</label><span class="hint">get this from them directly</span></div>
+          <input id="peer-fpr" type="text" placeholder="40 hex characters" autocomplete="off" spellcheck="false">
+        </div>
+        <label class="switch"><input id="use-stun" type="checkbox" checked>
+          <span><strong>Use public STUN</strong> (stun.l.google.com) to get through home routers. Turn off for LAN-only calls.</span></label>
+      </div>
+
+      <div class="card-section" id="role-pick">
+        <div class="roles">
+          <button id="btn-host" class="role">
+            <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
+            <strong>Start a call</strong>
+            <span class="desc">Create an invite code and send it to your peer.</span>
+          </button>
+          <button id="role-join" class="role">
+            <span class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg></span>
+            <strong>Join a call</strong>
+            <span class="desc">Paste the invite code your peer sent you.</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="card-section" id="codes" hidden>
+        <ol class="substeps" id="codes-steps">
+          <li id="step-my-code">
             <div class="field">
-              <div class="field-label"><label for="sign-cmd">Run these two commands</label><button class="link" data-copy="sign-cmd">Copy</button></div>
-              <textarea id="sign-cmd" spellcheck="false" readonly></textarea>
+              <div class="field-label"><label for="my-code" id="my-code-label">Send this invite to your peer</label><button class="link" data-copy="my-code">Copy</button></div>
+              <textarea id="my-code" readonly spellcheck="false" placeholder="Generating…"></textarea>
+              <div id="code-help" class="hint-below"></div>
             </div>
           </li>
-          <li>
+          <li id="step-their-code">
             <div class="field">
-              <div class="field-label"><label for="binding-asc">Paste the <code>gpg --clearsign</code> output</label></div>
-              <textarea id="binding-asc" spellcheck="false" placeholder="-----BEGIN PGP SIGNED MESSAGE-----"></textarea>
-            </div>
-          </li>
-          <li>
-            <div class="field">
-              <div class="field-label"><label for="gpg-pub">Paste the <code>gpg --armor --export</code> output</label></div>
-              <textarea id="gpg-pub" spellcheck="false" placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----"></textarea>
+              <div class="field-label"><label for="their-code" id="their-code-label">Paste their reply</label></div>
+              <textarea id="their-code" spellcheck="false" placeholder="YK1.…"></textarea>
             </div>
             <div class="actions">
-              <button id="btn-save-id" class="primary">Verify &amp; save identity</button>
+              <button id="btn-accept" class="primary" hidden>Connect</button>
+              <button id="btn-join" class="primary" hidden>Create reply</button>
             </div>
           </li>
         </ol>
+        <div id="connecting" class="waiting" style="margin-top: 20px" hidden><span class="spinner"></span><span>Waiting for the connection…</span></div>
+      </div>
+
+      <div class="card-foot">
+        <button class="ghost" data-go="identity">← Back</button>
+        <button class="ghost" id="btn-restart" hidden>Start over</button>
       </div>
     </div>
   </section>
 
-  <!-- Step 2 -->
-  <section class="card" id="card-connect">
-    <div class="card-head">
-      <div class="step">2</div>
-      <h2>Connect</h2>
-      <p>No server: swap two codes over any chat, email or text.</p>
-    </div>
-
-    <div class="card-body">
-      <div class="field">
-        <div class="field-label"><label for="peer-fpr">Peer's GPG fingerprint</label><span class="hint">get this from them directly</span></div>
-        <input id="peer-fpr" type="text" placeholder="40 hex characters" autocomplete="off" spellcheck="false">
-      </div>
-
-      <label class="switch"><input id="use-stun" type="checkbox" checked>
-        <span><strong>Use public STUN</strong> (stun.l.google.com) to get through home routers. Turn off for LAN-only calls.</span></label>
-
-      <div class="actions">
-        <button id="btn-host" class="primary">Create invite</button>
-        <button id="btn-join">Join with their invite</button>
-      </div>
-
-      <div class="field" style="margin-top: 24px">
-        <div class="field-label"><label for="my-code">Your code</label><button class="link" data-copy="my-code">Copy</button></div>
-        <textarea id="my-code" spellcheck="false" readonly placeholder="Appears here after you create an invite or join one"></textarea>
-        <div id="code-help" class="hint-below"></div>
-      </div>
-
-      <div class="field">
-        <div class="field-label"><label for="their-code">Their code</label></div>
-        <textarea id="their-code" spellcheck="false" placeholder="Paste their invite or reply here"></textarea>
-      </div>
-      <div class="actions">
-        <button id="btn-accept" class="primary" hidden>Connect with reply</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- Step 3 -->
-  <section class="card" id="card-call">
-    <div class="card-head">
-      <div class="step">3</div>
-      <h2>Call</h2>
-      <p>Touch your YubiKey when prompted. Green means the peer's key is proving presence right now.</p>
-    </div>
-
-    <div class="card-body">
-      <div id="status" class="status idle">Not connected</div>
-      <div class="stage">
-        <canvas id="remote" width="480" height="360"></canvas>
-        <div id="remote-placeholder" class="placeholder">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.2 3.1a.5.5 0 0 0 .8-.4V8.3a.5.5 0 0 0-.8-.4L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
-          Peer video appears here once connected
-        </div>
-        <div id="pip" class="pip" hidden><video id="local" autoplay muted playsinline></video></div>
-        <div class="overlay-left">
-          <div id="touch-prompt" class="touch" hidden>Touch your YubiKey</div>
+  <!-- ============ Call -->
+  <section class="screen container" data-screen="call" hidden>
+    <div class="call">
+      <div class="video-col">
+        <div id="status" class="status idle">Not connected</div>
+        <div class="stage">
+          <canvas id="remote" width="480" height="360"></canvas>
+          <div id="remote-placeholder" class="placeholder">
+            <svg><use href="#logo"/></svg>
+            Waiting for your peer's video…
+          </div>
+          <div id="key-badge" class="badge-key" hidden><svg><use href="#key"/></svg><span id="key-badge-text"></span></div>
+          <div id="pip" class="pip" hidden><video id="local" autoplay muted playsinline></video><span class="pip-label">You</span></div>
+          <div id="touch-prompt" class="touch" hidden><svg><use href="#key"/></svg>Touch your YubiKey</div>
           <button id="btn-retry" class="primary" hidden>Prove presence</button>
         </div>
+        <div id="ended" class="ended" hidden>
+          <span id="ended-text">Call ended</span>
+          <button id="btn-new-call" class="primary">New call</button>
+        </div>
+        <div class="controls">
+          <span id="call-config"></span>
+          <button id="btn-hangup" class="danger">Hang up</button>
+        </div>
       </div>
-      <div class="call-foot">
-        <span>Only the video is covered by the proofs, not the audio.</span>
-        <span id="call-config"></span>
-      </div>
-      <audio id="remote-audio" autoplay></audio>
+
+      <aside class="card chat">
+        <div class="chat-head">
+          <h3>Chat</h3>
+          <p>Messages are covered by the same signed proofs as the video.</p>
+        </div>
+        <div id="chat-list"><div class="chat-empty" id="chat-empty">No messages yet. Links you share are clickable.</div></div>
+        <div class="composer">
+          <textarea id="chat-input" placeholder="Message or link…" rows="1" maxlength="2000"></textarea>
+          <button id="btn-send" class="primary">Send</button>
+        </div>
+        <div class="chat-note">Links open in a new tab. Check where they go before clicking.</div>
+      </aside>
     </div>
+    <audio id="remote-audio" autoplay></audio>
   </section>
 
-  <section class="card log-card">
+  <div class="container">
     <details class="log">
       <summary>Activity log</summary>
       <div id="log"></div>
     </details>
-  </section>
+  </div>
 </main>
 
 <div id="toast" role="status" aria-live="polite"></div>
